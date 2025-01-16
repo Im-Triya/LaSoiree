@@ -36,6 +36,7 @@ class CustomUser(AbstractUser):
         blank=True,
         null=True,
     )
+    level = models.IntegerField(default=1)
 
     is_mobile_verified = models.BooleanField(default=False)
     is_google_authenticated = models.BooleanField(default=False)

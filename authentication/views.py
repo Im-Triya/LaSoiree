@@ -77,10 +77,8 @@ class DeleteUserAPIView(APIView):
             return Response({"error": "Phone number is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Fetch the user by phone number
             user = CustomUser.objects.get(phone_number=phone_number)
             
-            # Delete the user from the database
             user.delete()
 
             return Response({"message": f"User with phone number {phone_number} deleted successfully."}, status=status.HTTP_200_OK)
@@ -104,24 +102,32 @@ class GoogleLoginView(APIView):
             id_info = id_token.verify_oauth2_token(
                 token, 
                 Request(), 
-                audience=settings.GOOGLE_CLIENT_ID  # Replace with your actual Google client ID in settings
+                audience=settings.GOOGLE_CLIENT_ID 
             )
 
-            # Check if the token is valid and extract user info
             email = id_info.get('email')
 
-            # Check if the user already exists or create a new user
             user, created = get_user_model().objects.get_or_create(email=email)
 
-            # Optionally, you can set other user details like name, gender, etc.
             if created:
                 user.name = id_info.get('name')
                 user.save()
 
-            # Now authenticate the user (you can create JWT or a session)
-            # Here we just return user data, but you can return a JWT token instead
             return JsonResponse(CustomUserSerializer(user).data, status=status.HTTP_200_OK)
 
         except ValueError:
-            # Token verification failed
             return Response({"detail": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class RetrieveLevelAPIView(APIView):
+    def get(self, request):
+        phone_number = request.query_params.get('phone_number') 
+        if not phone_number:
+            return Response({"error": "Phone number is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = get_user_model().objects.get(phone_number=phone_number)  
+        except get_user_model().DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({"level": user.level}, status=status.HTTP_200_OK)

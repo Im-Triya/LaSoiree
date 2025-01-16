@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import RegisterAPIView, OTPRequestAPIView, OTPVerifyAPIView, DeleteUserAPIView, GoogleLoginView
+from .views import RegisterAPIView, OTPRequestAPIView, OTPVerifyAPIView, DeleteUserAPIView, GoogleLoginView, RetrieveLevelAPIView
 
 urlpatterns = [
     path('register/', RegisterAPIView.as_view(), name='register'),
@@ -7,5 +7,6 @@ urlpatterns = [
     path('otp-verify/', OTPVerifyAPIView.as_view(), name='otp_verify'),
     path("delete-user/", DeleteUserAPIView.as_view(), name="delete_user"),
     path('google/login/', GoogleLoginView.as_view(), name='google-login'),
+    path('level/', RetrieveLevelAPIView.as_view(), name='level'),
 ]
 
