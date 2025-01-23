@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Venue, Table, Menu
+from .models import Venue, Table, Menu, Waiter
 
 
 class VenueSerializer(serializers.ModelSerializer):
@@ -18,3 +18,8 @@ class MenuSerializer(serializers.ModelSerializer):
     class Meta:
         model = Menu
         fields = ['id', 'venue', 'item_name', 'price', 'is_veg', 'tag', 'image']
+
+class WaiterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Waiter
+        fields = ['waiter_id', 'name', 'venue']

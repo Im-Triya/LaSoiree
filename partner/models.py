@@ -2,6 +2,7 @@ import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
 from django.db import models
+import uuid
 
 
 class Venue(models.Model):
@@ -57,6 +58,7 @@ class Menu(models.Model):
         ('dessert', 'Dessert'),
     ]
 
+    menu_item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     venue = models.ForeignKey(Venue, related_name='menu_items', on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -66,3 +68,11 @@ class Menu(models.Model):
 
     def __str__(self):
         return f"{self.item_name} ({self.get_tag_display()}) - {self.venue.name}"
+
+class Waiter(models.Model):
+    waiter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    venue = models.ForeignKey('Venue', on_delete=models.CASCADE, related_name='waiters')
+
+    def __str__(self):
+        return self.name

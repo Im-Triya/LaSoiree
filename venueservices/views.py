@@ -1,63 +1,302 @@
-from datetime import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 from rest_framework import status
-from django.shortcuts import get_object_or_404
-from partner.models import Table
-from .models import TableReservation, Order
-from partner.models import Menu
-from .serializers import TableReservationSerializer, OrderSerializer
+from django.contrib.auth import get_user_model
+from partner.models import Venue, Table, Waiter, Menu
+from .models import Booking, Cart, CartItem
+from geopy.distance import geodesic
+import uuid
 
-class BookTableAPIView(APIView):
-    def post(self, request, qr_code):
-        print(f"Received QR Code: {qr_code}")
-        table = get_object_or_404(Table, qr_code=qr_code)
-        print(f"Found Table: {table}")
-        
+class FetchVenuesView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+
+        try:
+            user = get_user_model().objects.get(id=user_id)
+        except get_user_model().DoesNotExist:
+            raise NotFound({"message": "User not found."})
+
+        if user.is_location_permission_granted:
+            user_location = (user.geo_location.latitude, user.geo_location.longitude)
+            venues = Venue.objects.all()
+            sorted_venues = sorted(
+                venues, key=lambda venue: geodesic(user_location, (venue.geo_location.latitude, venue.geo_location.longitude)).kilometers
+            )
+            venue_data = [
+                {
+                    "venue_id": venue.venue_id,
+                    "name": venue.name,
+                    "city": venue.city,
+                    "geo_location": {
+                        "latitude": venue.geo_location.latitude,
+                        "longitude": venue.geo_location.longitude
+                    },
+                    "number_of_tables": venue.number_of_tables,
+                    "venue_image": venue.venue_image
+                } for venue in sorted_venues
+            ]
+            return Response({"venues": venue_data})
+
+        else:
+            venues = Venue.objects.all()
+            venue_data = [
+                {
+                    "venue_id": venue.venue_id,
+                    "name": venue.name,
+                    "city": venue.city,
+                    "geo_location": {
+                        "latitude": venue.geo_location.latitude,
+                        "longitude": venue.geo_location.longitude
+                    },
+                    "number_of_tables": venue.number_of_tables,
+                    "venue_image": venue.venue_image
+                } for venue in venues
+            ]
+            return Response({"venues": venue_data})
+
+class BookingTableView(APIView):
+    def post(self, request, *args, **kwargs):
+        qr_code = request.data.get('qr_code')
+        user_id = request.data.get('user_id')
+
+        try:
+            user = get_user_model().objects.get(id=user_id)
+        except get_user_model().DoesNotExist:
+            raise NotFound({"message": "User not found."})
+
+        try:
+            venue_id, table_no = qr_code.split("::")
+            venue = Venue.objects.get(venue_id=venue_id)
+            table = Table.objects.get(qr_code=qr_code)
+        except (Venue.DoesNotExist, Table.DoesNotExist):
+            raise NotFound({"message": "Invalid QR code.", "errors": "Venue or Table not found."})
+
         if table.is_occupied:
-            return Response({"error": "This table is already occupied."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Failed to book table.", "errors": "Table already occupied."}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking = Booking.objects.create(
+            booking_id=uuid.uuid4(),
+            venue=venue,
+            table=table,
+            qr_code=qr_code,
+            is_occupied=True
+        )
         
-        # Check if the user is authenticated
-        if request.user.is_anonymous:
-            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        reservation = TableReservation.objects.create(user=request.user, table=table)
+        booking.users.add(user)
+        booking.save()
+
         table.is_occupied = True
         table.save()
 
-        serializer = TableReservationSerializer(reservation)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    
-class PlaceOrderAPIView(APIView):
-    def post(self, request, reservation_id):
-        reservation = get_object_or_404(TableReservation, id=reservation_id, user=request.user)
-        
-        menu_item_id = request.data.get('menu_item_id')
-        quantity = request.data.get('quantity', 1)
-
-        menu_item = get_object_or_404(Menu, id=menu_item_id)
-        order = Order.objects.create(reservation=reservation, menu_item=menu_item, quantity=quantity)
-
-        serializer = OrderSerializer(order)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-class BillingAPIView(APIView):
-    def post(self, request, reservation_id):
-        reservation = get_object_or_404(TableReservation, id=reservation_id, user=request.user)
-
-        orders = reservation.orders.all()
-        total_bill = sum(order.menu_item.price * order.quantity for order in orders)
-
-        order_serializer = OrderSerializer(orders, many=True)
-
-        reservation.end_time = timezone.now()
-        reservation.table.is_occupied = False
-        reservation.table.save()
-        reservation.save()
+        users_data = [{"user_id": u.id, "name": u.name} for u in booking.users.all()]
 
         return Response({
-            "message": "Billing successful!",
-            "total_bill": total_bill,
-            "orders": order_serializer.data
-        }, status=status.HTTP_200_OK)
+            "message": "Table booked successfully.",
+            "booking_id": booking.booking_id,
+            "table": {
+                "venue_name": venue.name,
+                "table_number": table.table_number,
+                "is_occupied": table.is_occupied
+            },
+            "users": users_data
+        })
+
+class JoinTableView(APIView):
+    def post(self, request, *args, **kwargs):
+        qr_code = request.data.get('qr_code')
+        user_id = request.data.get('user_id')
+
+        try:
+            user = get_user_model().objects.get(id=user_id)
+        except get_user_model().DoesNotExist:
+            raise NotFound({"message": "User not found."})
+
+        try:
+            venue_id, table_no = qr_code.split("::")
+            venue = Venue.objects.get(venue_id=venue_id)
+            table = Table.objects.get(qr_code=qr_code)
+        except (Venue.DoesNotExist, Table.DoesNotExist):
+            raise NotFound({"message": "Invalid QR code.", "errors": "Venue or Table not found."})
+
+        if table.is_occupied:
+            booking = Booking.objects.get(venue=venue, table=table, is_occupied=True)
+            booking.users.add(user)
+            booking.save()
+
+            users_data = [{"user_id": u.id, "name": u.name} for u in booking.users.all()]
+            return Response({
+                "message": "Successfully joined the table.",
+                "booking_id": booking.booking_id,
+                "venue" : venue.name,
+                "table": table_no,
+                "users": users_data
+            })
+        else:
+            return Response({"message": "Failed to join table.", "errors": "Table not available."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SendWaiterNotificationView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+        venue_id = request.data.get('venue_id')
+
+        try:
+            venue = Venue.objects.get(venue_id=venue_id)
+            booking = Booking.objects.get(booking_id=booking_id, venue=venue)
+        except Venue.DoesNotExist or Booking.DoesNotExist:
+            raise NotFound({"message": "Booking or Venue not found."})
+
+        waiters = Waiter.objects.filter(venue=venue)
+        if not waiters:
+            return Response({"message": "Failed to send waiter notifications.", "errors": "No available waiters."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Notification system to be implemented here
+        return Response({"message": "Notifications to waiters sent successfully."})
+
+class AcceptBookingView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+        waiter_id = request.data.get('waiter_id')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+            waiter = Waiter.objects.get(waiter_id=waiter_id, venue=booking.venue)
+        except Booking.DoesNotExist or Waiter.DoesNotExist:
+            raise NotFound({"message": "Booking or Waiter not found."})
+
+        if booking.waiter:
+            return Response({"message": "Failed to accept booking.", "errors": "Booking already assigned."}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.waiter = waiter
+        booking.save()
+
+        return Response({
+            "message": "Booking accepted by waiter.",
+            "booking": {
+                "booking_id": booking.booking_id,
+                "table_number": booking.table.table_number, 
+                "waiter": {
+                    "waiter_id": waiter.waiter_id,
+                    "name": waiter.name
+                }
+            }
+        })
+
+class CallWaiterView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+        user_id = request.data.get('user_id')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+            user = get_user_model().objects.get(id=user_id)
+        except Booking.DoesNotExist or get_user_model().DoesNotExist:
+            raise NotFound({"message": "Booking or User not found."})
+
+        waiter = booking.waiter
+        if not waiter:
+            return Response({"message": "Failed to notify waiter.", "errors": "Waiter not assigned."}, status=status.HTTP_400_BAD_REQUEST)
+
+        #call to waiter to be sent here
+        return Response({
+            "message": "Waiter notified successfully.",
+            "table_number": booking.table.table_number, 
+            "waiter": {
+                "waiter_id": waiter.waiter_id,
+                "name": waiter.name
+            }
+        })
+
+# class MarkServiceAsServicedView(APIView):
+#     def put(self, request, *args, **kwargs):
+#         service_call_id = request.data.get('service_call_id')
+#         waiter_id = request.data.get('waiter_id')
+
+#         try:
+#             service_call = ServiceCall.objects.get(id=service_call_id)
+#             waiter = Waiter.objects.get(waiter_id=waiter_id)
+#         except ServiceCall.DoesNotExist or Waiter.DoesNotExist:
+#             raise NotFound({"message": "Service call or Waiter not found."})
+
+#         service_call.status = 'Serviced'
+#         service_call.save()
+
+#         return Response({"message": "Service call marked as serviced."})
+
+class AddItemToCartView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+        menu_item_id = request.data.get('menu_item_id')
+        quantity = request.data.get('quantity')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+            menu_item = Menu.objects.get(menu_item_id=menu_item_id)
+        except Booking.DoesNotExist or Menu.DoesNotExist:
+            raise NotFound({"message": "Booking or Menu item not found."})
+
+        cart, created = Cart.objects.get_or_create(booking=booking)
+        cart_item = CartItem.objects.create(
+            cart=cart,
+            menu_item=menu_item,
+            quantity=quantity,
+            total_price=menu_item.price * quantity
+        )
+        cart.total_bill += cart_item.total_price
+        cart.save()
+
+        cart_items = cart.items.all() 
+        items_data = [
+        {
+            "item_name": cart_item.menu_item.item_name,
+            "quantity": cart_item.quantity
+        }
+        for cart_item in cart_items
+        ]
+
+        return Response({
+            "message": "Item added to cart successfully.",
+            "cart": {
+                "cart_id": cart.cart_id,
+                "total_bill": cart.total_bill,
+                "items": items_data 
+            }
+        })
+
+class GenerateBillView(APIView):
+    def post(self, request, *args, **kwargs):
+        cart_id = request.data.get('cart_id')
+
+        try:
+            cart = Cart.objects.get(cart_id=cart_id)
+        except Cart.DoesNotExist:
+            raise NotFound({"message": "Cart not found."})
+
+        if cart.total_bill == 0:
+            return Response({"message": "Failed to generate bill.", "errors": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            "message": "Bill generated successfully.",
+            "total_bill": cart.total_bill
+        })
+
+class EndBookingView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+        except Booking.DoesNotExist:
+            raise NotFound({"message": "Booking not found."})
+
+        booking.is_occupied = False
+        booking.save()
+
+        return Response({
+            "message": "Booking ended successfully.",
+            "booking": {
+                "is_occupied": booking.is_occupied,
+                "total_bill": booking.total_bill
+            }
+        })

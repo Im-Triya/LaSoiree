@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import TableReservation, Order
+from .models import Booking, Cart, CartItem
 
-admin.site.register(TableReservation)
-admin.site.register(Order)
+admin.site.register(Booking)
+admin.site.register(Cart)
+admin.site.register(CartItem)

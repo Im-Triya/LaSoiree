@@ -6,7 +6,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'id', 'email', 'phone_number', 'name', 'age_group', 'gender', 'is_verified', 
-            'is_permission_granted', 'location', 'profile_photo', 'interests', 'level', 'last_login'
+            'is_location_permission_granted', 'location', 'profile_photo', 'interests', 'level', 'last_login'
         ]
         extra_kwargs = {
             'email': {'required': False},

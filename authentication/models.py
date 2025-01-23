@@ -33,7 +33,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     age_group = models.CharField(max_length=50, null=True, blank=True)
     gender = models.CharField(max_length=50, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
-    is_permission_granted = models.BooleanField(default=False)
+    is_location_permission_granted = models.BooleanField(default=False)
     location = models.JSONField(null=True, blank=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
     interests = models.JSONField(null=True, blank=True)
