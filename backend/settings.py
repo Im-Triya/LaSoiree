@@ -46,11 +46,13 @@ INSTALLED_APPS = [
     'authentication',
     'partner',
     'venueservices',
+    'chat',
     'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    "channels",
 ]
 
 SITE_ID = 1
@@ -95,7 +97,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = "backend.asgi.application"
 
+CHANNEL_LAYERS = {
+        'default': {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
