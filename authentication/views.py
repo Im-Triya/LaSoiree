@@ -104,9 +104,23 @@ class CheckUserExistsAPIView(APIView):
         if not email and not phone_number:
             return Response({"message": "Email or phone number is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_exists = CustomUser.objects.filter(email=email).exists() or CustomUser.objects.filter(phone_number=phone_number).exists()
-        return Response({"message": "User exists." if user_exists else "User does not exist.", "is_existing_user": user_exists}, status=status.HTTP_200_OK)
+        user = CustomUser.objects.filter(email=email).first() or CustomUser.objects.filter(phone_number=phone_number).first()
 
+        if user:
+            return Response(
+                {
+                    "message": "User already exists.",
+                    "user_id": str(user.id),  # Now 'user' is an object, so 'id' exists
+                    "email_exists": bool(user.email),
+                    "phone_number_exists": bool(user.phone_number),
+                },
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"message": "User does not exist."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 class RegisterUserAPIView(APIView):
     def post(self, request):
