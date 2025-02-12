@@ -76,25 +76,36 @@ class VerifyGoogleAPIView(APIView):
 
         try:
             id_info = id_token.verify_oauth2_token(google_token, Request(), settings.GOOGLE_CLIENT_ID)
-            email = id_info.get('email')
-            name = id_info.get('name')
+            email = id_info.get("email")
+            name = id_info.get("name")
 
             user, created = CustomUser.objects.get_or_create(email=email)
             user.is_verified = True
-            user.name = name
+            if not user.name:  
+                user.name = name
             user.last_login = now()
             user.save()
 
-            token = jwt.encode({"user_id": str(user.id), "exp": now() + settings.JWT_EXPIRATION}, settings.SECRET_KEY, algorithm="HS256")
-            Tokens.objects.create(user=user, token=token, expiry_date=now() + settings.JWT_EXPIRATION)
+            expiry_time = now() + settings.JWT_EXPIRATION  
+            expiry_timestamp = expiry_time.timestamp()  
 
-            return Response({"message": "Google account verified successfully.", "is_verified": True, "token": token}, status=status.HTTP_200_OK)
+            Tokens.objects.filter(user=user).delete()
+
+            token_payload = {"user_id": str(user.id), "exp": expiry_timestamp}
+            token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
+
+            Tokens.objects.create(user=user, token=token, expiry_date=expiry_time)
+
+            return Response({
+                "message": "Google account verified successfully.",
+                "is_verified": True,
+                "token": token
+            }, status=status.HTTP_200_OK)
 
         except ValueError:
             return Response({"message": "Google account verification failed."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class CheckUserExistsAPIView(APIView):
     def post(self, request):
