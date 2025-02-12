@@ -147,6 +147,7 @@ class UpdateLocationAPIView(APIView):
         try:
             user = CustomUser.objects.get(id=user_id)
             user.location = location
+            user.is_location_permission_granted = True
             user.save()
             return Response({"message": "Location updated successfully.", "location": user.location}, status=status.HTTP_200_OK)
 

@@ -17,43 +17,48 @@ class FetchVenuesView(APIView):
         except get_user_model().DoesNotExist:
             raise NotFound({"message": "User not found."})
 
-        if user.is_location_permission_granted:
-            user_location = (user.geo_location.latitude, user.geo_location.longitude)
-            venues = Venue.objects.all()
-            sorted_venues = sorted(
-                venues, key=lambda venue: geodesic(user_location, (venue.geo_location.latitude, venue.geo_location.longitude)).kilometers
-            )
-            venue_data = [
-                {
-                    "venue_id": venue.venue_id,
-                    "name": venue.name,
-                    "city": venue.city,
-                    "geo_location": {
-                        "latitude": venue.geo_location.latitude,
-                        "longitude": venue.geo_location.longitude
-                    },
-                    "number_of_tables": venue.number_of_tables,
-                    "venue_image": venue.venue_image
-                } for venue in sorted_venues
-            ]
-            return Response({"venues": venue_data})
+        venues = Venue.objects.all()
 
-        else:
-            venues = Venue.objects.all()
-            venue_data = [
-                {
-                    "venue_id": venue.venue_id,
-                    "name": venue.name,
-                    "city": venue.city,
-                    "geo_location": {
-                        "latitude": venue.geo_location.latitude,
-                        "longitude": venue.geo_location.longitude
-                    },
-                    "number_of_tables": venue.number_of_tables,
-                    "venue_image": venue.venue_image
-                } for venue in venues
-            ]
-            return Response({"venues": venue_data})
+        def get_geo(venue):
+            """Helper function to safely extract latitude & longitude."""
+            venue_geo = venue.geo_location or {}  # Ensure it's not None
+            return (
+                venue_geo.get("latitude", 0),  # Default value avoids errors
+                venue_geo.get("longitude", 0),
+            )
+
+        # Check if user's location permission is granted
+        if user.is_location_permission_granted:
+            user_geo = user.location or {}  # Ensure it's not None
+            user_lat = user_geo.get("latitude")
+            user_lon = user_geo.get("longitude")
+
+            # Validate that user location exists before sorting
+            if user_lat is not None and user_lon is not None:
+                user_location = (user_lat, user_lon)
+
+                # Sort venues based on distance from user
+                venues = sorted(
+                    venues, key=lambda venue: geodesic(user_location, get_geo(venue)).kilometers
+                )
+
+        # Construct response
+        venue_data = [
+            {
+                "venue_id": venue.venue_id,
+                "name": venue.name,
+                "city": venue.city,
+                "geo_location": {
+                    "latitude": venue.geo_location.get("latitude", 0),
+                    "longitude": venue.geo_location.get("longitude", 0),
+                },
+                "number_of_tables": venue.number_of_tables,
+                "venue_image": venue.venue_image.url if venue.venue_image else None,
+            }
+            for venue in venues
+        ]
+
+        return Response({"venues": venue_data})
 
 class BookingTableView(APIView):
     def post(self, request, *args, **kwargs):
