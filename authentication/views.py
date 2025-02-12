@@ -136,13 +136,30 @@ class CheckUserExistsAPIView(APIView):
 class RegisterUserAPIView(APIView):
     def post(self, request):
         serializer = CustomUserSerializer(data=request.data)
+
         if serializer.is_valid():
             user = serializer.save()
 
-            token = jwt.encode({"user_id": str(user.id), "exp": now() + settings.JWT_EXPIRATION}, settings.SECRET_KEY, algorithm="HS256")
-            Tokens.objects.create(user=user, token=token, expiry_date=now() + settings.JWT_EXPIRATION)
+            expiry_time = now() + settings.JWT_EXPIRATION  
+            expiry_timestamp = expiry_time.timestamp() 
 
-            return Response({"message": "User registered successfully.", "user_id": user.id, "token": token}, status=status.HTTP_201_CREATED)
+            token = jwt.encode({"user_id": str(user.id), "exp": expiry_timestamp}, settings.SECRET_KEY, algorithm="HS256")
+
+            Tokens.objects.filter(user=user).delete()
+            Tokens.objects.create(user=user, token=token, expiry_date=expiry_time)
+
+            return Response({
+                "message": "User registered successfully.",
+                "user_id": user.id,
+                "token": token
+            }, status=status.HTTP_201_CREATED)
+
+        existing_user = CustomUser.objects.filter(phone_number=request.data.get("phone_number")).first()
+        if existing_user:
+            return Response({
+                "message": "Custom user with this phone number already exists.",
+                "user_id": existing_user.id
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
