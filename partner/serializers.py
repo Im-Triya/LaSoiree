@@ -17,7 +17,7 @@ class TableSerializer(serializers.ModelSerializer):
 class MenuSerializer(serializers.ModelSerializer):
     class Meta:
         model = Menu
-        fields = ['id', 'venue', 'item_name', 'price', 'is_veg', 'tag', 'image']
+        fields = ['menu_item_id', 'venue', 'item_name', 'price', 'is_veg', 'tag', 'image']
 
 class WaiterSerializer(serializers.ModelSerializer):
     class Meta:

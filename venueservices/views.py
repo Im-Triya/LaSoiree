@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from rest_framework import status
+from decimal import Decimal
 from django.contrib.auth import get_user_model
 from partner.models import Venue, Table, Waiter, Menu
 from .models import Booking, Cart, CartItem
@@ -84,6 +85,7 @@ class BookingTableView(APIView):
             booking_id=uuid.uuid4(),
             venue=venue,
             table=table,
+            waiter=None,
             qr_code=qr_code,
             is_occupied=True
         )
@@ -248,16 +250,20 @@ class AddItemToCartView(APIView):
             quantity=quantity,
             total_price=menu_item.price * quantity
         )
-        cart.total_bill += cart_item.total_price
+        cart.total_bill = Decimal(cart.total_bill) + cart_item.total_price
         cart.save()
+
+        # Update the total_bill in the booking as well
+        booking.total_bill = cart.total_bill
+        booking.save()
 
         cart_items = cart.items.all() 
         items_data = [
-        {
-            "item_name": cart_item.menu_item.item_name,
-            "quantity": cart_item.quantity
-        }
-        for cart_item in cart_items
+            {
+                "item_name": cart_item.menu_item.item_name,
+                "quantity": cart_item.quantity
+            }
+            for cart_item in cart_items
         ]
 
         return Response({
@@ -268,6 +274,7 @@ class AddItemToCartView(APIView):
                 "items": items_data 
             }
         })
+
 
 class GenerateBillView(APIView):
     def post(self, request, *args, **kwargs):
@@ -295,13 +302,46 @@ class EndBookingView(APIView):
         except Booking.DoesNotExist:
             raise NotFound({"message": "Booking not found."})
 
-        booking.is_occupied = False
+        booking.table.is_occupied = False
+        booking.table.save()
         booking.save()
 
         return Response({
             "message": "Booking ended successfully.",
             "booking": {
-                "is_occupied": booking.is_occupied,
+                "booking_id": booking.booking_id,
+                "table_number": booking.table.table_number,
+                "venue_name": booking.venue.name,
+                "is_occupied": booking.table.is_occupied,
                 "total_bill": booking.total_bill
             }
+        })
+
+class VenueMenuView(APIView):
+    def get(self, request, venue_id, *args, **kwargs):
+        try:
+            venue = Venue.objects.get(venue_id=venue_id)
+        except Venue.DoesNotExist:
+            raise NotFound({"message": "Venue not found."})
+
+        menu_items = Menu.objects.filter(venue=venue)
+        
+        if not menu_items:
+            return Response({"message": "No menu items found for this venue."})
+
+        menu_data = [
+            {
+                "menu_item_id": item.menu_item_id,
+                "item_name": item.item_name,
+                "price": item.price,
+                "is_veg": item.is_veg,
+                "tag": item.tag
+            }
+            for item in menu_items
+        ]
+
+        return Response({
+            "message": "Menu fetched successfully.",
+            "Venue": venue.name,
+            "menu": menu_data
         })
