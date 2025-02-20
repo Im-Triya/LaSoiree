@@ -87,7 +87,7 @@ class BookingTableView(APIView):
             table=table,
             waiter=None,
             qr_code=qr_code,
-            is_occupied=True
+            is_ongoing=True
         )
         
         booking.users.add(user)
@@ -127,7 +127,7 @@ class JoinTableView(APIView):
             raise NotFound({"message": "Invalid QR code.", "errors": "Venue or Table not found."})
 
         if table.is_occupied:
-            booking = Booking.objects.get(venue=venue, table=table, is_occupied=True)
+            booking = Booking.objects.get(venue=venue, table=table, is_ongoing=True)
             booking.users.add(user)
             booking.save()
 
@@ -244,16 +244,19 @@ class AddItemToCartView(APIView):
             raise NotFound({"message": "Booking or Menu item not found."})
 
         cart, created = Cart.objects.get_or_create(booking=booking)
-        cart_item = CartItem.objects.create(
-            cart=cart,
-            menu_item=menu_item,
-            quantity=quantity,
-            total_price=menu_item.price * quantity
-        )
+        cart_item, item_created = CartItem.objects.get_or_create(cart=cart, menu_item=menu_item, defaults={
+            "quantity": quantity,
+            "total_price": menu_item.price * quantity
+        })
+
+        if not item_created:
+            cart_item.quantity += quantity
+            cart_item.total_price = menu_item.price * cart_item.quantity
+            cart_item.save()
+
         cart.total_bill = Decimal(cart.total_bill) + cart_item.total_price
         cart.save()
 
-        # Update the total_bill in the booking as well
         booking.total_bill = cart.total_bill
         booking.save()
 
@@ -272,6 +275,49 @@ class AddItemToCartView(APIView):
                 "cart_id": cart.cart_id,
                 "total_bill": cart.total_bill,
                 "items": items_data 
+            }
+        })
+    
+    def delete(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+        menu_item_id = request.data.get('menu_item_id')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+            cart = Cart.objects.get(booking=booking)
+            cart_item = CartItem.objects.get(cart=cart, menu_item_id=menu_item_id)
+        except (Booking.DoesNotExist, Cart.DoesNotExist, CartItem.DoesNotExist):
+            raise NotFound({"message": "Booking, cart, or menu item not found."})
+
+        if cart_item.quantity > 1:
+            cart_item.quantity -= 1
+            cart_item.total_price = cart_item.menu_item.price * cart_item.quantity
+            cart_item.save()
+        else:
+            cart_item.delete()
+
+        cart.total_bill = Decimal(sum(item.total_price for item in cart.items.all()))
+        cart.save()
+
+        # Update the total_bill in the booking as well
+        booking.total_bill = cart.total_bill
+        booking.save()
+
+        cart_items = cart.items.all()
+        items_data = [
+            {
+                "item_name": cart_item.menu_item.item_name,
+                "quantity": cart_item.quantity
+            }
+            for cart_item in cart_items
+        ]
+
+        return Response({
+            "message": "Item quantity updated or removed from cart successfully.",
+            "cart": {
+                "cart_id": cart.cart_id,
+                "total_bill": cart.total_bill,
+                "items": items_data
             }
         })
 
@@ -303,6 +349,7 @@ class EndBookingView(APIView):
             raise NotFound({"message": "Booking not found."})
 
         booking.table.is_occupied = False
+        booking.is_ongoing = False
         booking.table.save()
         booking.save()
 
@@ -344,4 +391,30 @@ class VenueMenuView(APIView):
             "message": "Menu fetched successfully.",
             "Venue": venue.name,
             "menu": menu_data
+        })
+    
+class GetCurrentBookingDetailsView(APIView):
+    def post(self, request, *args, **kwargs):
+        booking_id = request.data.get('booking_id')
+
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+        except Booking.DoesNotExist:
+            raise NotFound({"message": "Booking not found."})
+        
+        return Response({
+            "message": "Booking details fetched successfully.",
+            "booking": {
+                "booking_id": booking.booking_id,
+                "table_number": booking.table.table_number,
+                "venue_name": booking.venue.name,
+                "users" : [{"user_id": u.id, "name": u.name} for u in booking.users.all()],
+                "waiter": {
+                    "waiter_id": booking.waiter.waiter_id,
+                    "name": booking.waiter.name
+                } if booking.waiter else None,
+                "is_occupied": booking.table.is_occupied,
+                "is_ongoing": booking.is_ongoing,
+                "total_bill": booking.total_bill
+            }
         })
