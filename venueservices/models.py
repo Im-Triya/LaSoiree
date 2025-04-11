@@ -1,7 +1,8 @@
 from django.db import models
 from django.conf import settings
 import uuid
-from partner.models import Venue, Table, Waiter, Menu
+from partner.models import Venue, Table,  Menu
+from authentication.models import Waiter
 
 class Booking(models.Model):
     booking_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

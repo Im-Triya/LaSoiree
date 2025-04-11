@@ -4,7 +4,8 @@ from rest_framework.exceptions import NotFound
 from rest_framework import status
 from decimal import Decimal
 from django.contrib.auth import get_user_model
-from partner.models import Venue, Table, Waiter, Menu
+from partner.models import Venue, Table, Menu
+from authentication.models import Waiter
 from .models import Booking, Cart, CartItem
 from geopy.distance import geodesic
 import uuid

@@ -8,8 +8,13 @@ from .views import (
     UpdateLocationAPIView,
     UpdateProfileAPIView,
     LogoutUserAPIView,
-    ValidateTokenAPIView,
+    # ValidateTokenAPIView,
     FetchUserDetailsAPIView,
+    WaiterDetailsAPI,
+    RequestOwnerAPIView,
+    VerifyOwnerAPIView,
+    DeclineOwnerAPIView,
+    VerifyStaffAPIView,
 )
 
 urlpatterns = [
@@ -21,6 +26,11 @@ urlpatterns = [
     path('update-location', UpdateLocationAPIView.as_view(), name='update_location'),
     path('update-profile', UpdateProfileAPIView.as_view(), name='update_profile'),
     path('logout', LogoutUserAPIView.as_view(), name='logout_user'),
-    path('validate-token', ValidateTokenAPIView.as_view(), name='validate_token'),
+    # path('validate-token', ValidateTokenAPIView.as_view(), name='validate_token'),
     path('details', FetchUserDetailsAPIView.as_view(), name='fetch_user_details'),
+    path('waiter_details/<uuid:manager_id>/', WaiterDetailsAPI.as_view(), name='waiter-details'),
+    path('request-owner', RequestOwnerAPIView.as_view(), name='request-owner'),
+    path('verify-owner', VerifyOwnerAPIView.as_view(), name='verify-owner'),
+    path('decline-owner', DeclineOwnerAPIView.as_view(), name='decline-owner'),
+    path('verify-staff', VerifyStaffAPIView.as_view(), name='verify-staff'),
 ]

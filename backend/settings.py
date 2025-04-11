@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'rest_framework.authtoken',
     'authentication',
     'partner',
@@ -71,9 +73,12 @@ MIDDLEWARE = [
 ]
 
 AUTHENTICATION_BACKENDS = [
+    # 'authentication.auth_backends.MultiModelAuthBackend',
+
     # Needed to login by username in Django admin, regardless of `allauth`
     'django.contrib.auth.backends.ModelBackend',
 
+    
     # `allauth` specific authentication methods, such as login by email
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
@@ -191,4 +196,22 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
-JWT_EXPIRATION = timedelta(hours=24)
+# JWT_EXPIRATION = timedelta(hours=240)
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # 'authentication.custom_jwt_auth.MultiModelJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # For JWT
+        'rest_framework.authentication.SessionAuthentication',  # for Django admin
+    ],
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),  
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'TOKEN_OBTAIN_SERIALIZER': 'authentication.serializers.CustomTokenObtainPairSerializer',
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True,
+}

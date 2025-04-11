@@ -1,16 +1,22 @@
+from django.apps import apps
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
 from django.db import models
 import uuid
 
-
 class Venue(models.Model):
     venue_id = models.CharField(max_length=10, unique=True, editable=False)
     name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    category = models.CharField(max_length=255, null=True, blank=True)
+    gst_number = models.CharField(max_length=15, null=True, blank=True)
+    pan_number = models.CharField(max_length=10, null=True, blank=True)
     city = models.CharField(max_length=255)
-    geo_location = models.JSONField()  # Store latitude and longitude as a dictionary
-    number_of_tables = models.PositiveIntegerField()
+    geo_location = models.JSONField(null=True)  # Store latitude and longitude as a dictionary
+    number_of_tables = models.PositiveIntegerField(default=0)
+    total_capacity = models.PositiveIntegerField(default=0)
+    owners = models.ManyToManyField('authentication.Owner', related_name='venues')
     venue_image = models.ImageField(upload_to='venue_images/', blank=True, null=True)
 
     def save(self, *args, **kwargs):
@@ -52,16 +58,28 @@ class Table(models.Model):
 
 class Menu(models.Model):
     VENUE_ITEM_TAGS = [
+        ('chef_special', 'Chef Special'),
         ('starter', 'Starter'),
-        ('beverage', 'Beverage'),
         ('main_course', 'Main Course'),
-        ('dessert', 'Dessert'),
+        ('liquor', 'Liquor'),
+        ('beverage', 'Beverage'),
+        ('tobacco', 'Tobacco'),
     ]
 
     menu_item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     venue = models.ForeignKey(Venue, related_name='menu_items', on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
+    item_description = models.TextField(null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount=models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        default=0,
+        help_text="Percentage discount (0-100)"
+    )
+    is_available = models.BooleanField(default=True)
     is_veg = models.BooleanField(default=True)
     tag = models.CharField(max_length=20, choices=VENUE_ITEM_TAGS)
     image = models.ImageField(upload_to='menu_images/', blank=True, null=True)
@@ -69,10 +87,53 @@ class Menu(models.Model):
     def __str__(self):
         return f"{self.item_name} ({self.get_tag_display()}) - {self.venue.name}"
 
-class Waiter(models.Model):
-    waiter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    venue = models.ForeignKey('Venue', on_delete=models.CASCADE, related_name='waiters')
+class Offer(models.Model):
+    OFFER_TYPES = [
+        ('FREE_DRINK', 'Free Drink'),
+        ('PERCENTAGE_OFF', 'Percentage Off'),
+        ('HAPPY_HOUR', 'Happy Hour'),
+        ('BUY1_GET1', 'Buy 1 Get 1'),
+        ('LASOIREE_LEVEL', 'LaSoiree Level Offer'),
+        ('ENTRY_FEE', 'Entry Fee'),
+    ]
+    
+    LEVELS = [
+        (1, 'Level 1'),
+        (2, 'Level 2'),
+        (3, 'Level 3'),
+        (4, 'Level 4'),
+        (5, 'Level 5'),
+    ]
+    
+    offer_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    venue = models.ForeignKey(Venue, related_name='offers', on_delete=models.CASCADE)
+    offer_type = models.CharField(max_length=20, choices=OFFER_TYPES)
+    description = models.TextField(null=True, blank=True)
+    level = models.PositiveSmallIntegerField(choices=LEVELS, null=True, blank=True)
+    user = models.CharField(max_length=255, null=True, blank=True)  
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField(null=True, blank=True)
+    discount_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Percentage discount (0-100)"
+    )
+    is_entry_fee_required = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.get_offer_type_display()} - {self.venue.name}"
+
+    def save(self, *args, **kwargs):
+        if self.offer_type in ['PERCENTAGE_OFF', 'HAPPY_HOUR'] and not self.discount_percentage:
+            raise ValueError(f"{self.get_offer_type_display()} requires discount_percentage")
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-start_date']
+        verbose_name = 'Offer'
+        verbose_name_plural = 'Offers'
