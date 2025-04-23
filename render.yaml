@@ -61,7 +61,7 @@ services:
           property: connectionString
       - key: DJANGO_SECRET_KEY
         fromService:
-          name: lasoiree-backend
+          name: lasoiree-v1
           type: web
           envVarKey: DJANGO_SECRET_KEY
       - key: DJANGO_DEBUG
