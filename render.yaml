@@ -37,7 +37,7 @@ services:
       - key: TWILIO_AUTH_TOKEN
         value: "9312732efd32e0d0a8b47cfc149eb964"
       - key: TWILIO_SERVICE_SID
-        sync: false
+        value: "VA91972256eb4b08b3c76cf7fa508640a0"
       - key: GOOGLE_CLIENT_ID
         sync: false
     autoDeploy: true
