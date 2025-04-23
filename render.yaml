@@ -16,5 +16,5 @@ services:
       - key: DEBUG
         value: 'true'
       - key: ALLOWED_HOSTS
-        value: your-allowed-hosts
+        value: *
     autoDeploy: true
