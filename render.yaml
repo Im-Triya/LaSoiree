@@ -16,5 +16,5 @@ services:
       - key: DEBUG
         value: 'true'
       - key: ALLOWED_HOSTS
-        value: *
+        value: .onrender.com,localhost,127.0.0.1
     autoDeploy: true
