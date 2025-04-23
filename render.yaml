@@ -47,35 +47,3 @@ services:
           property: connectionString
     autoDeploy: true
     healthCheckPath: /admin/login/
-
-  - type: worker
-    name: lasoiree-async-tasks
-    env: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py runworker channels
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: lasoiree_db
-          property: connectionString
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          name: lasoiree-v1
-          type: web
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DJANGO_DEBUG
-        value: "false"
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: lasoiree-redis
-          property: connectionString
-      - key: PYTHONUNBUFFERED
-        value: "true"
-    autoDeploy: true
-
-  - type: redis
-    name: lasoiree-redis
-    plan: free
-    ipAllowList: []
