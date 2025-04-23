@@ -1,20 +1,20 @@
 version: 1
 services:
   - type: web
-    name: your-service-name  # Replace with your service name
+    name: lasoiree-v1
     env: python
-    plan: free  # Change to your desired plan
+    plan: free
     buildCommand: |
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
     startCommand: python manage.py runserver 0.0.0.0:8000
     envVars:
       - key: DJANGO_SECRET_KEY
-        value: your-secret-key  # Replace with your actual secret key
+        value: your-secret-key
       - key: DATABASE_URL
-        value: your-database-url  # Replace with your actual database URL
+        value: your-database-url
       - key: DEBUG
-        value: 'false'  # Set to 'true' for development, 'false' for production
+        value: 'true'
       - key: ALLOWED_HOSTS
-        value: your-allowed-hosts  # Replace with your allowed hosts
+        value: your-allowed-hosts
     autoDeploy: true
