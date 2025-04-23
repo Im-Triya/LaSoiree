@@ -40,10 +40,4 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: lasoiree-redis
-          property: connectionString
     autoDeploy: true
-    healthCheckPath: /admin/login/
