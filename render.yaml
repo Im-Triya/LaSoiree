@@ -1,4 +1,10 @@
 version: 1
+databases:
+  - name: lasoiree_db
+    plan: free
+    databaseName: lasoiree
+    user: lasoiree_user
+
 services:
   - type: web
     name: lasoiree-v1
@@ -6,15 +12,79 @@ services:
     plan: free
     buildCommand: |
       pip install -r requirements.txt
+      python manage.py migrate
       python manage.py collectstatic --noinput
-    startCommand: python manage.py runserver 0.0.0.0:8000
+    startCommand: gunicorn backend.wsgi:application
     envVars:
-      - key: DJANGO_SECRET_KEY
-        value: your-secret-key
       - key: DATABASE_URL
-        value: your-database-url
-      - key: DEBUG
-        value: 'true'
+        fromDatabase:
+          name: lasoiree_db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "true"
       - key: ALLOWED_HOSTS
-        value: .onrender.com,localhost,127.0.0.1
+        value: ".onrender.com,lasoiree-v1.onrender.com"
+      - key: WEB_CONCURRENCY
+        value: "4"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "backend.settings"
+      - key: PYTHONUNBUFFERED
+        value: "true"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SERVICE_SID
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lasoiree-redis
+          property: connectionString
     autoDeploy: true
+    healthCheckPath: /admin/login/
+
+  - type: worker
+    name: lasoiree-async-tasks
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py runworker channels
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lasoiree_db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          name: lasoiree-backend
+          type: web
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lasoiree-redis
+          property: connectionString
+      - key: PYTHONUNBUFFERED
+        value: "true"
+    autoDeploy: true
+
+  - type: redis
+    name: lasoiree-redis
+    plan: free
+    ipAllowList: []
+
+staticHosting:
+  - name: lasoiree-static
+    buildCommand: python manage.py collectstatic --noinput
+    staticPublishPath: ./staticfiles
+    routes:
+      - type: rewrite
+        source: /static/*
+        destination: /staticfiles/*
