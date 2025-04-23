@@ -79,12 +79,3 @@ services:
     name: lasoiree-redis
     plan: free
     ipAllowList: []
-
-staticHosting:
-  - name: lasoiree-static
-    buildCommand: python manage.py collectstatic --noinput
-    staticPublishPath: ./staticfiles
-    routes:
-      - type: rewrite
-        source: /static/*
-        destination: /staticfiles/*
