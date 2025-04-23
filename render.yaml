@@ -21,7 +21,7 @@ services:
           name: lasoiree_db
           property: connectionString
       - key: DJANGO_SECRET_KEY
-        generateValue: true
+        value: "django-insecure-$=yidkqwgwk(jwo4f%8=l1oz&30xi-w&4gy9ro&v-h#_4a&zwl"
       - key: DJANGO_DEBUG
         value: "true"
       - key: ALLOWED_HOSTS
