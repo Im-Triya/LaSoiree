@@ -33,9 +33,9 @@ services:
       - key: PYTHONUNBUFFERED
         value: "true"
       - key: TWILIO_ACCOUNT_SID
-        sync: false
+        value: "ACcd95e39af58e5e44e4c732e78dc1e288"
       - key: TWILIO_AUTH_TOKEN
-        sync: false
+        value: "9312732efd32e0d0a8b47cfc149eb964"
       - key: TWILIO_SERVICE_SID
         sync: false
       - key: GOOGLE_CLIENT_ID
