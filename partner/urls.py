@@ -11,10 +11,12 @@ from .views import (
     CreateOfferAPIView,
     DeactivateOfferAPIView
 )
+from venueservices.views import VenueVisitorsAPIView
 
 urlpatterns = [
     path('register/', RegisterVenueAPIView.as_view(), name='register_venue'),
     path('venues/<str:venue_id>/tables/', VenueTablesAPIView.as_view(), name='get_tables'),
+    path('venues/<str:venue_id>/visitors/', VenueVisitorsAPIView.as_view(), name='get_visitors'),
     path('venues/<str:venue_id>/menu/add/', AddMenuItemAPIView.as_view(), name='add_menu_item'),
     path('venues/<str:venue_id>/menu/update/', UpdateMenuItemAPIView.as_view(), name='update_menu_item'),
     path('tables/<str:qr_code>/occupancy/', UpdateTableOccupancyAPIView.as_view(), name='update_table_occupancy'),

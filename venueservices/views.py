@@ -7,8 +7,10 @@ from django.contrib.auth import get_user_model
 from partner.models import Venue, Table, Menu
 from authentication.models import Waiter
 from .models import Booking, Cart, CartItem
+from .serializers import BookingSerializer, CartSerializer, CartItemSerializer, VisitorSerializer
 from geopy.distance import geodesic
 import uuid
+from django.utils import timezone
 
 class FetchVenuesView(APIView):
     def post(self, request, *args, **kwargs):
@@ -395,9 +397,7 @@ class VenueMenuView(APIView):
         })
     
 class GetCurrentBookingDetailsView(APIView):
-    def post(self, request, *args, **kwargs):
-        booking_id = request.data.get('booking_id')
-
+    def get(self, request, booking_id, *args, **kwargs):
         try:
             booking = Booking.objects.get(booking_id=booking_id)
         except Booking.DoesNotExist:
@@ -418,4 +418,69 @@ class GetCurrentBookingDetailsView(APIView):
                 "is_ongoing": booking.is_ongoing,
                 "total_bill": booking.total_bill
             }
+        })
+
+class VenueVisitorsAPIView(APIView):
+    """
+    API view to get all visitor information for a venue,
+    including table status, booking details, and cart information.
+    """
+    def get(self, request, venue_id, *args, **kwargs):
+        try:
+            venue = Venue.objects.get(venue_id=venue_id)
+        except Venue.DoesNotExist:
+            raise NotFound({"message": "Venue not found."})
+        
+        # Get all active bookings for this venue
+        active_bookings = Booking.objects.filter(
+            venue=venue,
+            is_ongoing=True
+        )
+        
+        # Get recently closed bookings (completed within the last 2 hours)
+        two_hours_ago = timezone.now() - timezone.timedelta(hours=2)
+        closed_bookings = Booking.objects.filter(
+            venue=venue,
+            is_ongoing=False,
+            table__is_occupied=False,
+            updated_at__gte=two_hours_ago
+        )
+        
+        # Get bookings waiting for a table
+        waiting_bookings = Booking.objects.filter(
+            venue=venue,
+            is_ongoing=True,
+            table__is_occupied=False
+        )
+        
+        # Combine all bookings
+        all_relevant_bookings = list(active_bookings) + list(closed_bookings) + list(waiting_bookings)
+        
+        # Serialize the booking data
+        visitor_data = VisitorSerializer(all_relevant_bookings, many=True).data
+        
+        # Get all tables for this venue
+        tables = Table.objects.filter(venue=venue)
+        
+        # Prepare table status data for tables without active bookings
+        tables_without_bookings = []
+        active_table_ids = [booking.table.id for booking in all_relevant_bookings]
+        
+        for table in tables:
+            if table.id not in active_table_ids:
+                tables_without_bookings.append({
+                    "table_number": table.table_number,
+                    "status": "Available" if not table.is_occupied else "Reserved",
+                    "visitors": [],
+                    "dishes_ordered": 0,
+                    "total_bill": "0.00",
+                    "time_elapsed": "0 mins",
+                    "booking_id": None,
+                    "cart_id": None
+                })
+        
+        return Response({
+            "message": "Venue visitors fetched successfully.",
+            "venue_name": venue.name,
+            "tables": visitor_data + tables_without_bookings
         })
