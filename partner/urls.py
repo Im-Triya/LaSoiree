@@ -22,7 +22,7 @@ urlpatterns = [
     path('tables/<str:qr_code>/occupancy/', UpdateTableOccupancyAPIView.as_view(), name='update_table_occupancy'),
     path('venues/<str:venue_id>/update/', UpdateVenueAPIView.as_view(), name='update_venue'),
     path('venue/occupancy_stats/', VenueTableStatsAPIView.as_view(), name='venue-stats'),
-    path('venues/active_offers/', VenueActiveOffersAPIView.as_view(), name='venue-active-offers'),
+    path('venues/<str:venue_id>/active_offers/', VenueActiveOffersAPIView.as_view(), name='venue-active-offers'),
     path('venue/create_offer/', CreateOfferAPIView.as_view(), name='create-offer'),
     path('venue/deactivate_offer/', DeactivateOfferAPIView.as_view(), name='deactivate-offer'),
 ]

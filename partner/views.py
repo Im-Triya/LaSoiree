@@ -219,28 +219,17 @@ class VenueTableStatsAPIView(APIView):
             )
         
 class VenueActiveOffersAPIView(APIView):
-    def post(self, request):
-       
-        venue_id = request.data.get('venue_id')
-        
-        if not venue_id:
-            return Response(
-                {"error": "venue_id is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def get(self, request, venue_id, *args, **kwargs):
         try:
             venue = Venue.objects.get(venue_id=venue_id)
-            
-            # Get active offers for this venue
+
             active_offers = Offer.objects.filter(
                 venue=venue,
                 is_active=True
             ).order_by('-start_date')
-            
-            # Serialize the offers
+
             serializer = OfferSerializer(active_offers, many=True)
-            
+
             return Response({
                 "venue_id": venue_id,
                 "venue_name": venue.name,
@@ -248,7 +237,7 @@ class VenueActiveOffersAPIView(APIView):
                 "offers": serializer.data,
                 "message": f"Found {active_offers.count()} active offers for {venue.name}"
             }, status=status.HTTP_200_OK)
-            
+
         except Venue.DoesNotExist:
             return Response(
                 {"error": f"Venue with ID {venue_id} not found"},
@@ -259,6 +248,7 @@ class VenueActiveOffersAPIView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
         
 class CreateOfferAPIView(APIView):
     def post(self, request, *args, **kwargs):
