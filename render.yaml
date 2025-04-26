@@ -36,7 +36,7 @@ services:
       - key: TWILIO_ACCOUNT_SID
         value: "ACcd95e39af58e5e44e4c732e78dc1e288"
       - key: TWILIO_AUTH_TOKEN
-        value: "9312732efd32e0d0a8b47cfc149eb964"
+        value: "5b7687eb6f3c749028cfeb71838c92eb"
       - key: TWILIO_SERVICE_SID
         value: "VA91972256eb4b08b3c76cf7fa508640a0"
       - key: GOOGLE_CLIENT_ID
