@@ -15,6 +15,7 @@ from .views import (
     VerifyOwnerAPIView,
     DeclineOwnerAPIView,
     VerifyStaffAPIView,
+    CustomUserListAPIView,
 )
 
 urlpatterns = [
