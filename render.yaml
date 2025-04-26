@@ -12,13 +12,7 @@ services:
     plan: free
     buildCommand: |
       pip install -r requirements.txt
-      python manage.py makemigrations -- authentication
-      python manage.py migrate
-      python manage.py makemigrations -- chat
-      python manage.py migrate
-      python manage.py makemigrations -- venueservices
-      python manage.py migrate
-      python manage.py makemigrations -- partner
+      python manage.py makemigrations
       python manage.py migrate
       python manage.py collectstatic --noinput
     startCommand: python manage.py runserver 0.0.0.0:8000
