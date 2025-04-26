@@ -4,6 +4,7 @@ from io import BytesIO
 from django.core.files.base import ContentFile
 from django.db import models
 import uuid
+from django.utils import timezone
 
 class Venue(models.Model):
     venue_id = models.CharField(max_length=10, unique=True, editable=False)
