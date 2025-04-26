@@ -14,8 +14,8 @@ class Booking(models.Model):
     waiter = models.ForeignKey(Waiter, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='bookings')
     total_bill = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    created_at = models.DateTimeField(auto_now_add=True, default = timezone.now)
-    updated_at = models.DateTimeField(auto_now=True, default = timezone.now)
+    created_at = models.DateTimeField(default = timezone.now)
+    updated_at = models.DateTimeField(default = timezone.now)
 
     def __str__(self):
         return f"Booking {self.booking_id} at {self.venue.name}, Table {self.table.table_number}"
@@ -25,8 +25,8 @@ class Cart(models.Model):
     cart_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='cart')
     total_bill = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-    created_at = models.DateTimeField(auto_now_add=True, default = timezone.now)
-    updated_at = models.DateTimeField(auto_now=True, default = timezone.now)
+    created_at = models.DateTimeField(default = timezone.now)
+    updated_at = models.DateTimeField(default = timezone.now)
 
     def __str__(self):
         return f"Cart {self.cart_id} for Booking {self.booking.booking_id}"
