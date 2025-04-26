@@ -77,9 +77,8 @@ class Waiter(models.Model):
     venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='waiters')
     managers = models.ManyToManyField(Manager, related_name='waiters')
 
-
-
 class RequestedOwner(models.Model):
+    id = models.AutoField(primary_key=True)
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
