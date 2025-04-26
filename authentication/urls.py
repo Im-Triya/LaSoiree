@@ -19,6 +19,7 @@ from .views import (
 
 urlpatterns = [
     path('send-otp', SendOTPAPIView.as_view(), name='send_otp'),
+    path('users', CustomUserListAPIView.as_view(), name='users'),
     path('verify-phone', VerifyPhoneAPIView.as_view(), name='verify_phone'),
     path('verify-google', VerifyGoogleAPIView.as_view(), name='verify_google'),
     path('check-user', CheckUserExistsAPIView.as_view(), name='check_user'),

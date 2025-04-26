@@ -191,6 +191,18 @@ class VerifyOwnerAPIView(APIView):
             return Response({"message": "Requested owner not found."}, status=404)
         except Exception as e:
             return Response({"message": str(e)}, status=500)
+        
+class CustomUserListAPIView(APIView):
+    def get(self, request):
+        try:
+            users = CustomUser.objects.all()
+            serializer = CustomUserSerializer(users, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class DeclineOwnerAPIView(APIView):
     def post(self, request):
