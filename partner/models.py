@@ -17,7 +17,8 @@ class Venue(models.Model):
     geo_location = models.JSONField(null=True)  # Store latitude and longitude as a dictionary
     number_of_tables = models.PositiveIntegerField(default=0)
     total_capacity = models.PositiveIntegerField(default=0)
-    owners = models.ManyToManyField('authentication.Owner', related_name='venues')
+    # Removing owners field to break circular dependency
+    # owners = models.ManyToManyField('authentication.Owner', related_name='venues')
     venue_image = models.ImageField(upload_to='venue_images/', blank=True, null=True)
 
     def save(self, *args, **kwargs):
