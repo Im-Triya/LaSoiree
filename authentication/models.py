@@ -28,6 +28,7 @@ class BaseUserManager(BaseUserManager):
 
 class BaseUserModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255, null=True, blank=True)
@@ -65,20 +66,23 @@ class CustomUser(AbstractBaseUser, BaseUserModel, PermissionsMixin):
     REQUIRED_FIELDS = []
 
 class Owner(models.Model):
+    owner_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
     
 class Manager(models.Model):
+    manager_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
     venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='managers')
     owners = models.ManyToManyField(Owner, related_name='managers')
 
 class Waiter(models.Model):
+    waiter_id = models.AutoField(primary_key=True)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
     venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='waiters')
     managers = models.ManyToManyField(Manager, related_name='waiters')
 
 class RequestedOwner(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.AutoField(primary_key=True)
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
