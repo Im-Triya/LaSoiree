@@ -12,14 +12,24 @@ services:
     plan: free
     buildCommand: |
       pip install -r requirements.txt
-      python manage.py makemigrations -- authentication
+      # Remove existing migrations
+      python manage.py migrate --fake authentication zero
+      python manage.py migrate --fake partner zero
+      python manage.py migrate --fake venueservices zero
+      python manage.py migrate --fake chat zero
+      
+      # Create migrations
+      python manage.py makemigrations authentication
+      python manage.py makemigrations partner
+      python manage.py makemigrations venueservices
+      python manage.py makemigrations chat
+      
+      # Apply migrations
       python manage.py migrate authentication
-      python manage.py makemigrations -- chat
-      python manage.py migrate chat
-      python manage.py makemigrations -- venueservices
-      python manage.py migrate venueservices
-      python manage.py makemigrations -- partner
       python manage.py migrate partner
+      python manage.py migrate venueservices
+      python manage.py migrate chat
+      python manage.py migrate # For any remaining apps`
       python manage.py collectstatic --noinput
     startCommand: python manage.py runserver 0.0.0.0:8000
     envVars:
