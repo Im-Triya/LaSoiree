@@ -1,0 +1,60 @@
+version: 1
+databases:
+  - name: lasoiree_db
+    plan: free
+    databaseName: lasoiree
+    user: lasoiree_user
+
+services:
+  - type: web
+    name: lasoiree-v1
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      # Remove existing migrations
+      python manage.py migrate --fake authentication zero
+      python manage.py migrate --fake partner zero
+      python manage.py migrate --fake venueservices zero
+      python manage.py migrate --fake chat zero
+      
+      # Create migrations
+      python manage.py makemigrations authentication
+      python manage.py makemigrations partner
+      python manage.py makemigrations venueservices
+      python manage.py makemigrations chat
+      
+      # Apply migrations
+      python manage.py migrate authentication
+      python manage.py migrate partner
+      python manage.py migrate venueservices
+      python manage.py migrate chat
+      python manage.py migrate # For any remaining apps`
+      python manage.py collectstatic --noinput
+    startCommand: python manage.py runserver 0.0.0.0:8000
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lasoiree_db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        value: "django-insecure-$=yidkqwgwk(jwo4f%8=l1oz&30xi-w&4gy9ro&v-h#_4a&zwl"
+      - key: DJANGO_DEBUG
+        value: "true"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,lasoiree-v1.onrender.com"
+      - key: WEB_CONCURRENCY
+        value: "4"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "backend.settings"
+      - key: PYTHONUNBUFFERED
+        value: "true"
+      - key: TWILIO_ACCOUNT_SID
+        value: "ACcd95e39af58e5e44e4c732e78dc1e288"
+      - key: TWILIO_AUTH_TOKEN
+        value: "5b7687eb6f3c749028cfeb71838c92eb"
+      - key: TWILIO_SERVICE_SID
+        value: "VA91972256eb4b08b3c76cf7fa508640a0"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+    autoDeploy: true

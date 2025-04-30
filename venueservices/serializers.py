@@ -1,8 +1,11 @@
 from rest_framework import serializers
 from .models import Booking, Cart, CartItem
-from partner.models import Waiter, Menu, Table, Venue
-from partner.serializers import VenueSerializer, TableSerializer, WaiterSerializer, MenuSerializer
+from partner.models import  Menu, Table, Venue
+from authentication.models import Waiter
+from partner.serializers import VenueSerializer, TableSerializer, MenuSerializer
+from authentication.serializers import WaiterSerializer
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -13,7 +16,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = ['booking_id', 'venue', 'table', 'qr_code', 'is_occupied', 'waiter', 'users', 'total_bill']
+        fields = ['booking_id', 'venue', 'table', 'qr_code', 'is_ongoing', 'waiter', 'users', 'total_bill']
 
     def create(self, validated_data):
         venue_data = validated_data.pop('venue')
@@ -31,7 +34,7 @@ class BookingSerializer(serializers.ModelSerializer):
             waiter=waiter, 
             **validated_data
         )
-        booking.users.set(users_data)  # Adding multiple users
+        booking.users.set(users_data)
         return booking
 
 
@@ -70,3 +73,52 @@ class CartItemSerializer(serializers.ModelSerializer):
         instance.total_price = instance.menu_item.price * instance.quantity
         instance.save()
         return instance
+
+class VisitorSerializer(serializers.ModelSerializer):
+    """
+    Serializer for visitor information based on table and booking data.
+    """
+    table_number = serializers.IntegerField(source='table.table_number')
+    visitors = serializers.SerializerMethodField()
+    dishes_ordered = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    total_bill = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    time_elapsed = serializers.SerializerMethodField()
+    cart_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Booking
+        fields = ['booking_id', 'table_number', 'visitors', 'dishes_ordered', 
+                  'status', 'total_bill', 'time_elapsed', 'cart_id']
+
+    def get_visitors(self, obj):
+        return [{'user_id': user.id, 'name': user.name} for user in obj.users.all()]
+
+    def get_dishes_ordered(self, obj):
+        try:
+            cart = Cart.objects.get(booking=obj)
+            return cart.items.count()
+        except Cart.DoesNotExist:
+            return 0
+
+    def get_status(self, obj):
+        if not obj.is_ongoing:
+            return "Bill closed"
+        elif obj.is_ongoing and obj.table.is_occupied:
+            return "At table"
+        else:
+            return "Waiting for table"
+
+    def get_time_elapsed(self, obj):
+        if obj.created_at:
+            current_time = timezone.now()
+            elapsed_minutes = (current_time - obj.created_at).total_seconds() // 60
+            return f"{int(elapsed_minutes)} mins"
+        return "0 mins"
+
+    def get_cart_id(self, obj):
+        try:
+            cart = Cart.objects.get(booking=obj)
+            return str(cart.cart_id)
+        except Cart.DoesNotExist:
+            return None

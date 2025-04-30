@@ -4,6 +4,7 @@ from io import BytesIO
 from django.core.files.base import ContentFile
 from django.db import models
 import uuid
+from django.utils import timezone
 
 class Venue(models.Model):
     venue_id = models.CharField(max_length=10, unique=True, editable=False)
@@ -16,7 +17,8 @@ class Venue(models.Model):
     geo_location = models.JSONField(null=True)  # Store latitude and longitude as a dictionary
     number_of_tables = models.PositiveIntegerField(default=0)
     total_capacity = models.PositiveIntegerField(default=0)
-    owners = models.ManyToManyField('authentication.Owner', related_name='venues')
+    # Removing owners field to break circular dependency
+    # owners = models.ManyToManyField('authentication.Owner', related_name='venues')
     venue_image = models.ImageField(upload_to='venue_images/', blank=True, null=True)
 
     def save(self, *args, **kwargs):
@@ -69,6 +71,7 @@ class Menu(models.Model):
     menu_item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     venue = models.ForeignKey(Venue, related_name='menu_items', on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255)
+    category = models.CharField(max_length=255, null=True, blank=True)
     item_description = models.TextField(null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     discount=models.DecimalField(

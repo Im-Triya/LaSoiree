@@ -17,7 +17,7 @@ class TableSerializer(serializers.ModelSerializer):
 class MenuSerializer(serializers.ModelSerializer):
     class Meta:
         model = Menu
-        fields = ['menu_item_id', 'venue', 'item_name', 'price', 'is_veg', 'tag', 'image']
+        fields = ['menu_item_id', 'venue', 'item_name', 'price', 'is_veg', 'tag', 'category', 'discount', 'image']
 
 class OfferSerializer(serializers.ModelSerializer):
     offer_type_display = serializers.CharField(source='get_offer_type_display', read_only=True)
