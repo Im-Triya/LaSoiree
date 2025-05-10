@@ -11,12 +11,24 @@ services:
         fromDatabase:
           name: lasoiree-db
           property: connectionString
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DEBUG
-        value: "False"
-
-databases:
-  - name: lasoiree-db
-    databaseName: lasoiree
-    user: lasoireeuser
+      - key: DJANGO_SECRET_KEY
+        value: "django-insecure-$=yidkqwgwk(jwo4f%8=l1oz&30xi-w&4gy9ro&v-h#_4a&zwl"
+      - key: DJANGO_DEBUG
+        value: "true"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,lasoiree.onrender.com"
+      - key: WEB_CONCURRENCY
+        value: "4"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "backend.settings"
+      - key: PYTHONUNBUFFERED
+        value: "true"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SERVICE_SID
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+    autoDeploy: true
