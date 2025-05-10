@@ -33,33 +33,28 @@ from rest_framework.views import APIView
 
 class CheckAPIView(APIView):
     def post(self, request):
-        table_name = 'authentication_customuser'  # Replace if app name is different
-
+        # Get all table names in the database
         with connection.cursor() as cursor:
-            # Check if the table exists
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables 
-                    WHERE table_name = %s
-                )
-            """, [table_name])
-            table_exists = cursor.fetchone()[0]
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            
+            # List to store tables with columns
+            tables_with_columns = []
 
-            if not table_exists:
-                return Response(
-                    {"message": f"Table '{table_name}' does not exist."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            # Loop through all tables and fetch column names
+            for table in tables:
+                table_name = table[0]
+                cursor.execute(f"PRAGMA table_info({table_name});")  # Use PRAGMA for SQLite to get column details
+                columns = cursor.fetchall()
+                column_names = [col[1] for col in columns]  # col[1] is the column name in the result of PRAGMA
 
-            # Get column names
-            cursor.execute(f"SELECT * FROM {table_name} LIMIT 1")
-            column_names = [desc[0] for desc in cursor.description]
+                tables_with_columns.append({
+                    'table_name': table_name,
+                    'columns': column_names
+                })
 
         return Response(
-            {
-                "message": f"Table '{table_name}' exists.",
-                "columns": column_names
-            },
+            {"tables": tables_with_columns},
             status=status.HTTP_200_OK
         )
 
