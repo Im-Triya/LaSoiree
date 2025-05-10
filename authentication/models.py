@@ -65,15 +65,15 @@ class CustomUser(AbstractBaseUser, BaseUserModel, PermissionsMixin):
     REQUIRED_FIELDS = []
 
 class Owner(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True, primary_key=True)
     
 class Manager(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True, primary_key=True)
     venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='managers', db_index=True)
     owners = models.ManyToManyField(Owner, related_name='managers')
 
 class Waiter(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True, primary_key=True)
     venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='waiters', db_index=True)
     managers = models.ManyToManyField(Manager, related_name='waiters')
 
