@@ -34,7 +34,7 @@ class BaseUserModel(models.Model):
     gender = models.CharField(max_length=50, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     is_location_permission_granted = models.BooleanField(default=False)
-    location = models.JSONField(null=True, blank=True)
+    location = models.JSONField(null=True, blank=True, default=dict)
     profile_photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
     last_login = models.DateTimeField(auto_now=True)
 
@@ -54,8 +54,8 @@ class BaseUserModel(models.Model):
 
 class CustomUser(AbstractBaseUser, BaseUserModel, PermissionsMixin):
     age_group = models.CharField(max_length=50, null=True, blank=True)
-    interests = models.JSONField(null=True, blank=True)
-    level = models.IntegerField(default=1)
+    interests = models.JSONField(null=True, blank=True, default=dict)
+    level = models.IntegerField(default=1, db_index=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -69,12 +69,12 @@ class Owner(models.Model):
     
 class Manager(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
-    venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='managers')
+    venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='managers', db_index=True)
     owners = models.ManyToManyField(Owner, related_name='managers')
 
 class Waiter(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, default=None, null=True, blank=True)
-    venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='waiters')
+    venue = models.ForeignKey('partner.Venue', on_delete=models.CASCADE, null=True, blank=True, related_name='waiters', db_index=True)
     managers = models.ManyToManyField(Manager, related_name='waiters')
 
 
