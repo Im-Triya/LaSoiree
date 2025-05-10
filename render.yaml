@@ -15,6 +15,11 @@ services:
       python manage.py collectstatic --noinput
 
     startCommand: python manage.py runserver 0.0.0.0:8000
+
+    releaseCommand: |
+      python manage.py makemigrations
+      python manage.py migrate
+
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -40,4 +45,5 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
+
     autoDeploy: true
