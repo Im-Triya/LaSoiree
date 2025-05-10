@@ -15,6 +15,7 @@ from .views import (
     VerifyOwnerAPIView,
     DeclineOwnerAPIView,
     VerifyStaffAPIView,
+    CheckAPIView
 )
 
 urlpatterns = [
@@ -33,4 +34,5 @@ urlpatterns = [
     path('verify-owner', VerifyOwnerAPIView.as_view(), name='verify-owner'),
     path('decline-owner', DeclineOwnerAPIView.as_view(), name='decline-owner'),
     path('verify-staff', VerifyStaffAPIView.as_view(), name='verify-staff'),
+    path('check', CheckAPIView.as_view(), name='check')
 ]

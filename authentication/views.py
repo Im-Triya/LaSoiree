@@ -26,6 +26,44 @@ import jwt
 from rest_framework import status
 from partner.models import Venue
 
+
+from django.http import JsonResponse
+from django.db import connection
+from rest_framework.views import APIView
+
+class CheckAPIView(APIView):
+    def post(self, request):
+        table_name = 'authentication_customuser'  # Replace if app name is different
+
+        with connection.cursor() as cursor:
+            # Check if the table exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables 
+                    WHERE table_name = %s
+                )
+            """, [table_name])
+            table_exists = cursor.fetchone()[0]
+
+            if not table_exists:
+                return Response(
+                    {"message": f"Table '{table_name}' does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Get column names
+            cursor.execute(f"SELECT * FROM {table_name} LIMIT 1")
+            column_names = [desc[0] for desc in cursor.description]
+
+        return Response(
+            {
+                "message": f"Table '{table_name}' exists.",
+                "columns": column_names
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 class SendOTPAPIView(APIView):
     def post(self, request):
         phone_number = request.data.get("phone_number")
