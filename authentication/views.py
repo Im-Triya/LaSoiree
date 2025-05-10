@@ -33,20 +33,28 @@ from rest_framework.views import APIView
 
 class CheckAPIView(APIView):
     def post(self, request):
-        # Get all table names in the database
         with connection.cursor() as cursor:
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            # Get all table names from information_schema.tables for PostgreSQL
+            cursor.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+            """)
             tables = cursor.fetchall()
             
             # List to store tables with columns
             tables_with_columns = []
 
-            # Loop through all tables and fetch column names
+            # Loop through all tables and fetch column names from information_schema.columns
             for table in tables:
                 table_name = table[0]
-                cursor.execute(f"PRAGMA table_info({table_name});")  # Use PRAGMA for SQLite to get column details
+                cursor.execute("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = %s
+                """, [table_name])
                 columns = cursor.fetchall()
-                column_names = [col[1] for col in columns]  # col[1] is the column name in the result of PRAGMA
+                column_names = [col[0] for col in columns]  # col[0] is the column name in the result
 
                 tables_with_columns.append({
                     'table_name': table_name,
