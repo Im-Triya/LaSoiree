@@ -7,7 +7,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from .serializers import CustomUserSerializer, OwnerSerializer, ManagerSerializer, WaiterSerializer, RequestedOwnerSerializer, StaffVerificationSerializer
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import get_object_or_404
@@ -87,6 +87,8 @@ class SendOTPAPIView(APIView):
             return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class VerifyPhoneAPIView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         phone_number = request.data.get("phone_number")
         otp = request.data.get("otp")

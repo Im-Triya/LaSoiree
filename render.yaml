@@ -18,7 +18,8 @@ services:
 
       python manage.py collectstatic --noinput
 
-    startCommand: python manage.py runserver 0.0.0.0:8000
+    # startCommand: python manage.py runserver 0.0.0.0:8000
+    startCommand: daphne -b 0.0.0.0 -p $PORT backend.asgi:application
 
     envVars:
       - key: DATABASE_URL
@@ -45,5 +46,15 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # Add channel layer config (using PostgreSQL as backend)
+      - key: CHANNEL_LAYERS_DEFAULT_BACKEND
+        value: "channels_postgres.core.PostgresChannelLayer"
+      - key: CHANNEL_LAYERS_DEFAULT_CONFIG_HOST
+        fromDatabase:
+          name: lasoiree_db
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: backend.settings
+
 
     autoDeploy: true

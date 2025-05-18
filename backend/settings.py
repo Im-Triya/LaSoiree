@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -49,13 +49,15 @@ INSTALLED_APPS = [
     'authentication',
     'partner',
     'venueservices',
-    
+    "channels",
+    'chat',
     'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    "channels",
+    
+    'django.contrib.staticfiles',
 ]
 
 SITE_ID = 1
@@ -103,13 +105,22 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
-ASGI_APPLICATION = "backend.asgi.application"
+ASGI_APPLICATION = 'backend.routing.application'
+
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer"
+#     }
+# }
 
 CHANNEL_LAYERS = {
-        'default': {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        }
-    }
+    "default": {
+        "BACKEND": os.getenv("CHANNEL_LAYERS_DEFAULT_BACKEND", "channels.layers.InMemoryChannelLayer"),
+        "CONFIG": {
+            "host": os.getenv("CHANNEL_LAYERS_DEFAULT_CONFIG_HOST"),
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -212,6 +223,9 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # For JWT
         'rest_framework.authentication.SessionAuthentication',  # for Django admin
     ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
 }
 
 SIMPLE_JWT = {
