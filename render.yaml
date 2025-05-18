@@ -19,7 +19,7 @@ services:
       python manage.py collectstatic --noinput
 
     # startCommand: python manage.py runserver 0.0.0.0:8000
-    startCommand: daphne -b 0.0.0.0 -p $PORT backend.asgi:application
+    startCommand: daphne -b 0.0.0.0 -p 10000 backend.asgi:application
 
     envVars:
       - key: DATABASE_URL
