@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'authentication',
     'partner',
     'venueservices',
-    'chat',
+    
     'django.contrib.sites',
     'allauth',
     'allauth.account',
