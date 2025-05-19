@@ -68,6 +68,7 @@ class CheckAPIView(APIView):
 
 
 class SendOTPAPIView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         phone_number = request.data.get("phone_number")
 
