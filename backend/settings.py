@@ -113,14 +113,24 @@ ASGI_APPLICATION = 'backend.routing.application'
 #     }
 # }
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": os.getenv("CHANNEL_LAYERS_DEFAULT_BACKEND", "channels.layers.InMemoryChannelLayer"),
-        "CONFIG": {
-            "host": os.getenv("CHANNEL_LAYERS_DEFAULT_CONFIG_HOST"),
-        },
-    },
-}
+if os.getenv('DJANGO_ENV') == 'production':
+    # Production configuration (for Render)
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_postgres.core.PostgresChannelLayer",
+            "CONFIG": {
+                "dsn": os.getenv('DATABASE_URL'),
+                "suffix": "_channels",  # Optional table suffix
+            },
+        }
+    }
+else:
+    # Local development configuration
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

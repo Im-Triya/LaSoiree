@@ -53,8 +53,6 @@ services:
         fromDatabase:
           name: lasoiree_db
           property: connectionString
-      - key: DJANGO_SETTINGS_MODULE
-        value: backend.settings
-
+      
 
     autoDeploy: true
