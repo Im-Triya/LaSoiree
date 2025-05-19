@@ -68,6 +68,8 @@ class CheckAPIView(APIView):
 
 class SendOTPAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
+
     def post(self, request):
         phone_number = request.data.get("phone_number")
 
@@ -88,6 +90,7 @@ class SendOTPAPIView(APIView):
         
 class VerifyPhoneAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     
 
     def post(self, request):
@@ -176,6 +179,7 @@ class VerifyPhoneAPIView(APIView):
 
 class RequestOwnerAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     
     def post(self, request):
         serializer = RequestedOwnerSerializer(data=request.data)
@@ -186,6 +190,7 @@ class RequestOwnerAPIView(APIView):
 
 class VerifyOwnerAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     
     def post(self, request):
         phone_number = request.data.get("phone_number")
@@ -242,6 +247,8 @@ class VerifyOwnerAPIView(APIView):
 
 class DeclineOwnerAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
+
     def post(self, request):
         phone_number = request.data.get("phone_number")
 
@@ -410,6 +417,9 @@ class VerifyStaffAPIView(APIView):
         )
         
 class VerifyGoogleAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def post(self, request):
         google_token = request.data.get("google_token")
 
@@ -904,4 +914,3 @@ class WaiterDetailsAPI(APIView):
             )
         
 
-        
