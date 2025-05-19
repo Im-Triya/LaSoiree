@@ -5,6 +5,11 @@ from django.core.files.base import ContentFile
 from django.db import models
 import uuid
 
+import qrcode
+from io import BytesIO
+from django.core.files import File
+from django.db import models
+
 class Venue(models.Model):
     venue_id = models.CharField(max_length=10, unique=True, editable=False)
     name = models.CharField(max_length=255)
@@ -13,21 +18,48 @@ class Venue(models.Model):
     gst_number = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
     city = models.CharField(max_length=255)
-    geo_location = models.JSONField(null=True)  # Store latitude and longitude as a dictionary
+    geo_location = models.JSONField(null=True)
     number_of_tables = models.PositiveIntegerField(default=0)
     total_capacity = models.PositiveIntegerField(default=0)
+    current_strength = models.PositiveIntegerField(default=0)
     owners = models.ManyToManyField('authentication.Owner', related_name='venues')
     venue_image = models.ImageField(upload_to='venue_images/', blank=True, null=True)
+    qr_code = models.ImageField(upload_to='venue_qrcodes/', blank=True, null=True)
 
     def save(self, *args, **kwargs):
+        # Generate venue_id if it's a new venue
         if not self.venue_id:
             last_venue = Venue.objects.all().order_by('id').last()
             self.venue_id = f"VEN{(int(last_venue.venue_id.replace('VEN', '')) + 1):03d}" if last_venue else "VEN001"
+        
+        # Generate QR code only for new venues or when venue_id changes
+        if not self.pk or (self.pk and Venue.objects.get(pk=self.pk).venue_id != self.venue_id):
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(self.venue_id)
+            qr.make(fit=True)
+            
+            img = qr.make_image(fill_color="black", back_color="white")
+            
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            
+            # Save the QR code to the qr_code field
+            self.qr_code.save(
+                f'qr_code_{self.venue_id}.png',
+                File(buffer),
+                save=False
+            )
+        
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
-
+    
 
 class Table(models.Model):
     venue = models.ForeignKey(Venue, related_name='tables', on_delete=models.CASCADE)

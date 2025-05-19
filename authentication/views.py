@@ -66,7 +66,6 @@ class CheckAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
-
 class SendOTPAPIView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
@@ -89,6 +88,7 @@ class SendOTPAPIView(APIView):
         
 class VerifyPhoneAPIView(APIView):
     permission_classes = [AllowAny]
+    
 
     def post(self, request):
         phone_number = request.data.get("phone_number")
@@ -175,6 +175,8 @@ class VerifyPhoneAPIView(APIView):
             )
 
 class RequestOwnerAPIView(APIView):
+    permission_classes = [AllowAny]
+    
     def post(self, request):
         serializer = RequestedOwnerSerializer(data=request.data)
         if serializer.is_valid():
@@ -183,6 +185,8 @@ class RequestOwnerAPIView(APIView):
         return Response(serializer.errors, status=400)
 
 class VerifyOwnerAPIView(APIView):
+    permission_classes = [AllowAny]
+    
     def post(self, request):
         phone_number = request.data.get("phone_number")
 
@@ -237,6 +241,7 @@ class VerifyOwnerAPIView(APIView):
             return Response({"message": str(e)}, status=500)
 
 class DeclineOwnerAPIView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         phone_number = request.data.get("phone_number")
 
@@ -532,54 +537,56 @@ class CheckUserExistsAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-class RegisterUserAPIView(APIView):
-    def post(self, request):
-        serializer = CustomUserSerializer(data=request.data)
+# class RegisterUserAPIView(APIView):
+#     def post(self, request):
+#         serializer = CustomUserSerializer(data=request.data)
 
-        if serializer.is_valid():
-            # Check for existing user before saving
-            phone_number = request.data.get("phone_number")
-            if phone_number and CustomUser.objects.filter(phone_number=phone_number).exists():
-                existing_user = CustomUser.objects.get(phone_number=phone_number)
-                return Response({
-                    "message": "User with this phone number already exists.",
-                    "user_id": existing_user.id
-                }, status=status.HTTP_400_BAD_REQUEST)
+#         if serializer.is_valid():
+#             # Check for existing user before saving
+#             phone_number = request.data.get("phone_number")
+#             if phone_number and CustomUser.objects.filter(phone_number=phone_number).exists():
+#                 existing_user = CustomUser.objects.get(phone_number=phone_number)
+#                 return Response({
+#                     "message": "User with this phone number already exists.",
+#                     "user_id": existing_user.id
+#                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create new user
-            user = serializer.save()
+#             # Create new user
+#             user = serializer.save()
             
-            # Generate SimpleJWT tokens
-            access_token = AccessToken.for_user(user)
-            refresh_token = RefreshToken.for_user(user)  # Optional: if using refresh tokens
+#             # Generate SimpleJWT tokens
+#             access_token = AccessToken.for_user(user)
+#             refresh_token = RefreshToken.for_user(user)  # Optional: if using refresh tokens
             
-            # Add custom claims if needed
-            access_token['user_type'] = 'customuser'  # Example custom claim
+#             # Add custom claims if needed
+#             access_token['user_type'] = 'customuser'  # Example custom claim
             
-            return Response({
-                "message": "User registered successfully.",
-                "user_id": str(user.id),
-                "access": str(access_token),
-                "refresh": str(refresh_token),  # Optional
-                "email": user.email,
-                "phone_number": user.phone_number
-            }, status=status.HTTP_201_CREATED)
+#             return Response({
+#                 "message": "User registered successfully.",
+#                 "user_id": str(user.id),
+#                 "access": str(access_token),
+#                 "refresh": str(refresh_token),  # Optional
+#                 "email": user.email,
+#                 "phone_number": user.phone_number
+#             }, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateLocationAPIView(APIView):
-    def put(self, request):
-        user_id = request.data.get("user_id")
-        location = request.data.get("location")
-        user_type = request.data.get("user_type", "customuser")  # Default to customuser
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-        if not user_id or not location:
+    def patch(self, request):
+        user_type = request.auth.payload.get("user_type")
+        location = request.data.get("location")
+
+        if not location:
             return Response(
-                {"message": "User ID and location are required."}, 
+                {"message": "Location is required."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Map user types to their models
+        # Map user types to models
         user_model_map = {
             'customuser': CustomUser,
             'owner': Owner,
@@ -589,28 +596,29 @@ class UpdateLocationAPIView(APIView):
 
         if user_type not in user_model_map:
             return Response(
-                {"message": "Invalid user type."},
+                {"message": "Invalid user type in token."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        model_class = user_model_map[user_type]
+
         try:
-            model_class = user_model_map[user_type]
-            user = model_class.objects.get(id=user_id)
-            
+            user = model_class.objects.get(user=request.user) if user_type != "customuser" else request.user
+
             user.location = location
             user.is_location_permission_granted = True
             user.save()
-            
+
             return Response(
                 {
                     "message": "Location updated successfully.",
                     "user_type": user_type,
                     "location": user.location
-                }, 
+                },
                 status=status.HTTP_200_OK
             )
 
-        except model_class.DoesNotExist:
+        except ObjectDoesNotExist:
             return Response(
                 {"message": f"{user_type.capitalize()} not found."},
                 status=status.HTTP_404_NOT_FOUND
@@ -622,21 +630,12 @@ class UpdateLocationAPIView(APIView):
             )
 
 class UpdateProfileAPIView(APIView):
-    def put(self, request):
-        user_id = request.data.get("user_id")
-        user_type = request.data.get("user_type", "customuser")  # Default to customuser
-        name = request.data.get("name")
-        gender = request.data.get("gender")
-        profile_photo = request.FILES.get("profile_photo")
-        interests = request.data.get("interests")
-        age_group = request.data.get("age_group")
-        level = request.data.get("level")
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-        if not user_id:
-            return Response(
-                {"message": "User ID is required."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    def patch(self, request):
+        # Extract user type from JWT payload
+        user_type = request.auth.payload.get("user_type", "customuser")
 
         # Map user types to their models
         user_model_map = {
@@ -648,47 +647,68 @@ class UpdateProfileAPIView(APIView):
 
         if user_type not in user_model_map:
             return Response(
-                {"message": "Invalid user type."},
+                {"message": "Invalid user type in token."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        model_class = user_model_map[user_type]
         try:
-            model_class = user_model_map[user_type]
-            user = model_class.objects.get(id=user_id)
+            # Determine the actual CustomUser instance for updating
+            if user_type == 'customuser':
+                profile = request.user
+            else:
+                wrapper = model_class.objects.get(user=request.user)
+                profile = wrapper.user
 
-            # Update fields if they are provided
+            # Collect updateable fields
+            name = request.data.get("name")
+            gender = request.data.get("gender")
+            profile_photo = request.FILES.get("profile_photo")
+            interests = request.data.get("interests")
+            age_group = request.data.get("age_group")
+            level = request.data.get("level")
+
             update_fields = []
+
+            # Apply updates if provided
             if name is not None:
-                user.name = name
+                profile.name = name
                 update_fields.append('name')
             if gender is not None:
-                user.gender = gender
+                profile.gender = gender
                 update_fields.append('gender')
-            if age_group is not None and hasattr(user, 'age_group'):
-                user.age_group = age_group
+            if age_group is not None:
+                profile.age_group = age_group
                 update_fields.append('age_group')
             if profile_photo is not None:
-                user.profile_photo = profile_photo
+                profile.profile_photo = profile_photo
                 update_fields.append('profile_photo')
-            if interests is not None and hasattr(user, 'interests'):
-                user.interests = interests
+            if interests is not None:
+                profile.interests = interests
                 update_fields.append('interests')
-            if level is not None and hasattr(user, 'level'):
-                user.level = level
+            if level is not None:
+                profile.level = level
+                update_fields.append('level')
 
-            if update_fields:
-                user.save(update_fields=update_fields)
+            if not update_fields:
+                return Response(
+                    {"message": "No valid fields provided to update."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Save only the changed fields
+            profile.save(update_fields=update_fields)
 
             return Response(
                 {
                     "message": "Profile updated successfully.",
                     "user_type": user_type,
                     "updated_fields": update_fields
-                }, 
+                },
                 status=status.HTTP_200_OK
             )
 
-        except model_class.DoesNotExist:
+        except ObjectDoesNotExist:
             return Response(
                 {"message": f"{user_type.capitalize()} not found."},
                 status=status.HTTP_404_NOT_FOUND
@@ -712,6 +732,72 @@ class LogoutUserAPIView(APIView):
         except Exception as e:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+
+class LoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        user_type = request.data.get('user_type')
+        phone_number = request.data.get('phone_number')
+
+        if not user_type or not phone_number:
+            return Response(
+                {"message": "Both 'user_type' and 'phone_number' are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Map user_type to model
+        model_map = {
+            'customuser': CustomUser,
+            'owner': Owner,
+            'manager': Manager,
+            'waiter': Waiter,
+        }
+
+        if user_type not in model_map:
+            return Response(
+                {"message": f"Invalid user_type '{user_type}'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ModelClass = model_map[user_type]
+
+        try:
+            if user_type == 'customuser':
+                user = get_object_or_404(CustomUser, phone_number=phone_number)
+            else:
+                wrapper = get_object_or_404(ModelClass, user__phone_number=phone_number)
+                user = wrapper.user
+
+            if not user.is_active:
+                return Response(
+                    {"message": "User account is inactive."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Generate JWT access token with custom claims
+            refresh = RefreshToken.for_user(user)
+            refresh['user_type'] = user_type
+            refresh['user_id'] = str(user.id)
+            access_token = str(refresh.access_token)
+
+            return Response(
+                {
+                    "message": "Login successful.",
+                    "access": access_token,
+                    "user_id": str(user.id),
+                    "user_type": user_type
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception:
+            return Response(
+                {"message": f"{user_type.capitalize()} with phone number '{phone_number}' not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
 # class ValidateTokenAPIView(APIView):
 #     def post(self, request):
 #         token = request.data.get("token")
@@ -728,64 +814,71 @@ class LogoutUserAPIView(APIView):
 #             return Response({"message": "Token is invalid or expired.", "is_authenticated": False}, status=status.HTTP_401_UNAUTHORIZED)
 
 class FetchUserDetailsAPIView(APIView):
-    def post(self, request): 
-        user_id = request.data.get("user_id")  
-        user_type = request.data.get("user_type", "customuser")
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-        if not user_id:
-            return Response(
-                {"message": "User ID is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    def get(self, request):
+        # 1. Extract user_type from JWT
+        user_type = request.auth.payload.get("user_type", "customuser")
 
+        # 2. Map types to model & serializer
         user_model_map = {
-            'customuser': {
-                'model': CustomUser,
-                'serializer': CustomUserSerializer
+            "customuser": {
+                "model": CustomUser,
+                "serializer": CustomUserSerializer,
             },
-            'owner': {
-                'model': Owner,
-                'serializer': OwnerSerializer
+            "owner": {
+                "model": Owner,
+                "serializer": OwnerSerializer,
             },
-            'manager': {
-                'model': Manager,
-                'serializer': ManagerSerializer
+            "manager": {
+                "model": Manager,
+                "serializer": ManagerSerializer,
             },
-            'waiter': {
-                'model': Waiter,
-                'serializer': WaiterSerializer
-            }
+            "waiter": {
+                "model": Waiter,
+                "serializer": WaiterSerializer,
+            },
         }
 
         if user_type not in user_model_map:
             return Response(
-                {"message": "Invalid user type."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Invalid user type in token."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
+        model_info = user_model_map[user_type]
+        ModelClass = model_info["model"]
+        SerializerClass = model_info["serializer"]
+
         try:
-            model_info = user_model_map[user_type]
-            user = model_info['model'].objects.get(id=user_id)
-            serializer = model_info['serializer'](user)
-            
+            # 3. Fetch the right instance
+            if user_type == "customuser":
+                user_obj = request.user
+            else:
+                # Related models use OneToOneField to CustomUser
+                user_obj = ModelClass.objects.get(user=request.user)
+
+            # 4. Serialize and respond
+            serializer = SerializerClass(user_obj)
             return Response(
                 {
                     "message": "User details fetched successfully.",
                     "user_type": user_type,
-                    "data": serializer.data
+                    "data": serializer.data,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
-        except model_info['model'].DoesNotExist:
+        except ObjectDoesNotExist:
             return Response(
                 {"message": f"{user_type.capitalize()} not found."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
                 {"message": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 class WaiterDetailsAPI(APIView):
@@ -809,3 +902,6 @@ class WaiterDetailsAPI(APIView):
                 {"error": "Manager not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+
+        

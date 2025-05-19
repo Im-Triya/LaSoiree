@@ -10,7 +10,9 @@ from .views import (
     GenerateBillView,
     EndBookingView,
     VenueMenuView,
-    GetCurrentBookingDetailsView
+    GetCurrentBookingDetailsView, 
+    PresenceCheckInView, 
+    PresenceLocationCheckView
 )
 
 urlpatterns = [
@@ -24,5 +26,7 @@ urlpatterns = [
     path('cart/generate_bill/', GenerateBillView.as_view(), name='generate_bill'),
     path('bookings/end/', EndBookingView.as_view(), name='end_booking'),
     path('<str:venue_id>/menu_view/', VenueMenuView.as_view(), name='menu_view'),
-    path('get_current_booking/', GetCurrentBookingDetailsView.as_view(), name='current_booking_details')
+    path('get_current_booking/', GetCurrentBookingDetailsView.as_view(), name='current_booking_details'),
+    path('presence/check-in/', PresenceCheckInView.as_view(), name='presence-check-in'),
+    path('presence/location-check/', PresenceLocationCheckView.as_view(), name='presence-location-check')
 ]

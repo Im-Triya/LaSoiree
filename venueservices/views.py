@@ -6,9 +6,26 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from partner.models import Venue, Table, Menu
 from authentication.models import Waiter
-from .models import Booking, Cart, CartItem
+from .models import Booking, Cart, CartItem, Presence
 from geopy.distance import geodesic
 import uuid
+from django.utils import timezone
+import math
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    R = 6371000  # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+
+    a = math.sin(d_phi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(d_lambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
 
 class FetchVenuesView(APIView):
     def post(self, request, *args, **kwargs):
@@ -322,7 +339,6 @@ class AddItemToCartView(APIView):
             }
         })
 
-
 class GenerateBillView(APIView):
     def post(self, request, *args, **kwargs):
         cart_id = request.data.get('cart_id')
@@ -419,3 +435,60 @@ class GetCurrentBookingDetailsView(APIView):
                 "total_bill": booking.total_bill
             }
         })
+
+class PresenceCheckInView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        # Check user type in JWT payload (assuming 'user_type' is in token payload)
+        user_type = request.auth.get('user_type') if hasattr(request, 'auth') else None
+        if user_type != 'customuser':
+            return Response({"detail": "Only customuser can check in."}, status=status.HTTP_403_FORBIDDEN)
+        
+        venue_id = request.data.get('venue_id')
+        if not venue_id:
+            return Response({"detail": "venue_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        venue = get_object_or_404(Venue, venue_id=venue_id)
+
+        # Check if Presence already exists with no time_out (active presence)
+        presence_qs = Presence.objects.filter(user=user, venue=venue, time_out__isnull=True)
+        if presence_qs.exists():
+            return Response({"detail": "User already checked in at this venue."}, status=status.HTTP_400_BAD_REQUEST)
+
+        presence = Presence.objects.create(user=user, venue=venue, time_in=timezone.now())
+        return Response({"detail": f"Checked in at {venue.name}", "presence_id": str(presence.id)}, status=status.HTTP_201_CREATED)
+
+class PresenceLocationCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        # Get current location from request
+        current_location = request.data.get('location')
+        if not current_location:
+            return Response({"detail": "Current location is required."}, status=status.HTTP_400_BAD_REQUEST)
+        lat = current_location.get('latitude')
+        lon = current_location.get('longitude')
+        if lat is None or lon is None:
+            return Response({"detail": "Latitude and longitude are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        presence = Presence.objects.filter(user=user).first()
+        
+        
+        venue_location = presence.venue.geo_location or {}
+        venue_lat = venue_location.get('latitude')
+        venue_lon = venue_location.get('longitude')
+
+        if venue_lat is None or venue_lon is None:
+            return Response({"detail": "Venue location is not set properly."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        distance = haversine_distance(float(lat), float(lon), float(venue_lat), float(venue_lon))
+
+        if distance > 50:  # meters
+            # Remove Presence entry (mark time_out as now)
+            presence.delete()
+            return Response({"detail": "You are too far from the venue. Checked out automatically."}, status=status.HTTP_200_OK)
+
+        return Response({"detail": "You are within the venue location.", "distance_meters": distance}, status=status.HTTP_200_OK)

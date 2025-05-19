@@ -6,25 +6,76 @@ from .models import Venue, Table, Menu, Offer
 from .serializers import VenueSerializer, TableSerializer, MenuSerializer, OfferSerializer
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import PermissionDenied, NotFound
 
-class RegisterVenueAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        serializer = VenueSerializer(data=request.data)
-        if serializer.is_valid():
-            venue = serializer.save()
+class UpdateVenueAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
 
-            for i in range(1, venue.number_of_tables + 1):
-                Table.objects.create(venue=venue, table_number=i)
+    def patch(self, request, *args, **kwargs):
+        user_type = request.auth.payload.get('user_type')
+        if user_type != "owner":
+            raise PermissionDenied("Only owners can update venues.")
+
+        venue_id = kwargs.get('venue_id')
+        if not venue_id:
+            return Response(
+                {"message": "Venue ID is required in URL."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            venue = Venue.objects.get(venue_id=venue_id)
             
-            return Response({
-                "message": "Venue registered successfully.",
-                "venue_id": venue.venue_id
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            "message": "Venue registration failed.",
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+            if not venue.owners.filter(user__id=request.user.id).exists():
+                raise PermissionDenied("You don't own this venue.")
 
+            serializer = VenueSerializer(
+                venue, 
+                data=request.data, 
+                partial=True,
+                context={'request': request}  
+            )
+            
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        "message": "Validation failed",
+                        "errors": serializer.errors
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            updated_venue = serializer.save()
+
+            if 'number_of_tables' in request.data:
+                current_tables_count = venue.tables.count()  
+                new_table_count = updated_venue.number_of_tables
+                
+                if new_table_count > current_tables_count:
+                    for i in range(current_tables_count + 1, new_table_count + 1):
+                        Table.objects.create(venue=venue, table_number=i)
+                elif new_table_count < current_tables_count:
+                    venue.tables.filter(table_number__gt=new_table_count).delete()
+
+            return Response(
+                {
+                    "message": "Venue updated successfully",
+                    "data": VenueSerializer(updated_venue).data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Venue.DoesNotExist:
+            raise NotFound("Venue not found")
+        except Exception as e:
+            return Response(
+                {"message": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class VenueTablesAPIView(APIView):
     def get(self, request, venue_id, *args, **kwargs):
@@ -63,7 +114,6 @@ class VenueTablesAPIView(APIView):
             return Response({
                 "message": "Venue not found."
             }, status=status.HTTP_404_NOT_FOUND)
-
 
 class AddMenuItemAPIView(APIView):
     def post(self, request, venue_id, *args, **kwargs):
@@ -123,7 +173,6 @@ class UpdateMenuItemAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
 class UpdateTableOccupancyAPIView(APIView):
     def put(self, request, qr_code, *args, **kwargs):
         try:
@@ -141,42 +190,6 @@ class UpdateTableOccupancyAPIView(APIView):
         except Table.DoesNotExist:
             return Response({
                 "message": "Table not found."
-            }, status=status.HTTP_404_NOT_FOUND)
-
-class UpdateVenueAPIView(APIView):
-    def put(self, request, venue_id, *args, **kwargs):
-        try:
-            venue = Venue.objects.get(venue_id=venue_id)
-            original_number_of_tables = venue.number_of_tables
-            new_number_of_tables = int(request.data.get("number_of_tables", original_number_of_tables))
-
-            # Update the venue details using the serializer
-            serializer = VenueSerializer(venue, data=request.data, partial=True)
-            if serializer.is_valid():
-                # Save the updated venue details
-                serializer.save()
-
-                # Create new tables if the number of tables has increased
-                if new_number_of_tables > original_number_of_tables:
-                    for table_number in range(original_number_of_tables + 1, new_number_of_tables + 1):
-                        Table.objects.create(
-                            venue=venue,
-                            table_number=table_number,
-                            is_occupied=False
-                        )
-
-                return Response({
-                    "message": "Venue details updated successfully."
-                }, status=status.HTTP_200_OK)
-
-            return Response({
-                "message": "Failed to update venue details.",
-                "errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        except Venue.DoesNotExist:
-            return Response({
-                "message": "Venue not found."
             }, status=status.HTTP_404_NOT_FOUND)
 
 class VenueTableStatsAPIView(APIView):

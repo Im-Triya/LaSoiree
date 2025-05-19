@@ -5,7 +5,7 @@ from .models import Venue, Table, Menu, Offer
 class VenueSerializer(serializers.ModelSerializer):
     class Meta:
         model = Venue
-        fields = ['venue_id', 'name', 'city', 'geo_location', 'number_of_tables', 'venue_image', 'owners', 'category', 'description', 'gst_number', 'pan_number', 'total_capacity']
+        fields = ['venue_id', 'name', 'city', 'geo_location', 'number_of_tables', 'venue_image', 'owners', 'category', 'description', 'gst_number', 'pan_number', 'total_capacity', 'current_strength', 'qr_code']
 
 
 class TableSerializer(serializers.ModelSerializer):
