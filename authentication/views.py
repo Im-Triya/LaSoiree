@@ -34,7 +34,7 @@ from rest_framework.views import APIView
 class CheckAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    
+
     def post(self, request):
         with connection.cursor() as cursor:
             # Get all table names from information_schema.tables for PostgreSQL
@@ -486,6 +486,9 @@ class VerifyGoogleAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 class CheckUserExistsAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
     def post(self, request):
         email = request.data.get("email")
         phone_number = request.data.get("phone_number")
