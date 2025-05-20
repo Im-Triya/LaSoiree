@@ -71,6 +71,15 @@ class RequestedOwnerSerializer(serializers.ModelSerializer):
             'business_name', 'details', 'category',
             'gst_number', 'pan_number'
         ]
+        extra_kwargs = {
+            'email': {'required': False},
+            'name': {'required': False},
+            'business_name': {'required': False},
+            'details': {'required': False},
+            'category': {'required': False},
+            'gst_number': {'required': False},
+            'pan_number': {'required': False},
+        }
 
 class StaffVerificationSerializer(serializers.Serializer):
     ROLE_CHOICES = ['CO_OWNER', 'MANAGER', 'WAITER']

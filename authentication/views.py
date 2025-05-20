@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import get_object_or_404
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from .models import CustomUser, Owner, Manager, Waiter, RequestedOwner
 # from .utils import send_otp_via_sms
 from django.conf import settings
@@ -180,16 +180,68 @@ class VerifyPhoneAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-class RequestOwnerAPIView(APIView):
+class AddOwnerAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
     
     def post(self, request):
-        serializer = RequestedOwnerSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "Owner request submitted successfully."}, status=201)
-        return Response(serializer.errors, status=400)
+        phone_number = request.data.get("phone_number")
+        if not phone_number:
+            return Response({"message": "Phone number is required."}, status=400)
+            
+        try:
+            requested_owner = RequestedOwner.objects.create(phone_number=phone_number)
+            return Response({"message": "Owner phone number added successfully."}, status=201)
+        except IntegrityError:
+            return Response({"message": "Owner with this phone number already exists."}, status=400)
+        except Exception as e:
+            return Response({"message": str(e)}, status=500)
+        
+class RequestOwnerAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        # Check if user is owner
+        if request.auth.payload.get('user_type') != 'owner':
+            return Response({"message": "Only owners can complete this request."}, status=403)
+            
+        phone_number = request.user.phone_number  # Get phone number from authenticated user
+        
+        try:
+            # First check if the owner exists
+            requested_owner = RequestedOwner.objects.get(
+                phone_number=phone_number
+            )
+            
+            # Ensure the phone number in request data matches the authenticated user
+            request_data = request.data.copy()
+            if 'phone_number' in request_data and request_data['phone_number'] != phone_number:
+                return Response(
+                    {"message": "Phone number in request doesn't match authenticated user."},
+                    status=400
+                )
+            
+            # Remove phone_number from data to prevent modification
+            request_data.pop('phone_number', None)
+            
+            serializer = RequestedOwnerSerializer(
+                requested_owner,
+                data=request_data,
+                partial=True
+            )
+            
+            if serializer.is_valid():
+                serializer.save(details_completed=True)
+                return Response({"message": "Owner details completed successfully."}, status=200)
+            return Response(serializer.errors, status=400)
+            
+        except RequestedOwner.DoesNotExist:
+            return Response(
+                {"message": "Owner not added by Admin."},
+                status=404
+            )
+        except Exception as e:
+            return Response({"message": str(e)}, status=500)
 
 class VerifyOwnerAPIView(APIView):
     permission_classes = [AllowAny]
@@ -199,7 +251,7 @@ class VerifyOwnerAPIView(APIView):
         phone_number = request.data.get("phone_number")
 
         try:
-            requested_owner = RequestedOwner.objects.get(phone_number=phone_number)
+            requested_owner = RequestedOwner.objects.get(phone_number=phone_number, details_completed=True)
 
             # Create CustomUser
             user, created = CustomUser.objects.get_or_create(
@@ -488,7 +540,7 @@ class VerifyGoogleAPIView(APIView):
 class CheckUserExistsAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    
+
     def post(self, request):
         email = request.data.get("email")
         phone_number = request.data.get("phone_number")
@@ -751,6 +803,7 @@ class LogoutUserAPIView(APIView):
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         user_type = request.data.get('user_type')
@@ -762,55 +815,140 @@ class LoginAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Map user_type to model
-        model_map = {
-            'customuser': CustomUser,
-            'owner': Owner,
-            'manager': Manager,
-            'waiter': Waiter,
-        }
-
-        if user_type not in model_map:
+        if user_type not in ['customuser', 'partner']:
             return Response(
-                {"message": f"Invalid user_type '{user_type}'."},
+                {"message": "Invalid user_type. Must be 'customuser' or 'partner'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        ModelClass = model_map[user_type]
-
         try:
             if user_type == 'customuser':
+                # Handle custom user login
                 user = get_object_or_404(CustomUser, phone_number=phone_number)
-            else:
-                wrapper = get_object_or_404(ModelClass, user__phone_number=phone_number)
-                user = wrapper.user
+                
+                if not user.is_active:
+                    return Response(
+                        {"message": "User account is inactive."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
-            if not user.is_active:
+                refresh = RefreshToken.for_user(user)
+                refresh['user_type'] = 'customuser'
+                refresh['user_id'] = str(user.id)
+                access_token = str(refresh.access_token)
+
                 return Response(
-                    {"message": "User account is inactive."},
-                    status=status.HTTP_403_FORBIDDEN
+                    {
+                        "message": "Login successful.",
+                        "access": access_token,
+                        "user_id": str(user.id),
+                        "user_type": 'customuser'
+                    },
+                    status=status.HTTP_200_OK
                 )
 
-            # Generate JWT access token with custom claims
-            refresh = RefreshToken.for_user(user)
-            refresh['user_type'] = user_type
-            refresh['user_id'] = str(user.id)
-            access_token = str(refresh.access_token)
+            else:  # partner login flow
+                # Step 1: Check RequestedOwner table
+                requested_owner = RequestedOwner.objects.filter(phone_number=phone_number, owner_accepted__in=["pending", "declined"]).first()
+                if requested_owner:
+                    token = RefreshToken()
+                    token['phone_number'] = phone_number
+                    token['user_type'] = 'owner'
+                    token['is_pending'] = True
+                    # No user_id for requested owners
+                    access_token = str(token.access_token)
 
-            return Response(
-                {
-                    "message": "Login successful.",
-                    "access": access_token,
-                    "user_id": str(user.id),
-                    "user_type": user_type
-                },
-                status=status.HTTP_200_OK
-            )
+                    return Response(
+                        {
+                            "message": "Login successful (pending or declined owner approval).",
+                            "access": access_token,
+                            "user_type": 'owner'
+                        },
+                        status=status.HTTP_200_OK
+                    )
 
-        except Exception:
+                # Step 2: Check Owner table
+                owner = Owner.objects.filter(user__phone_number=phone_number).first()
+                if owner:
+                    if not owner.user.is_active:
+                        return Response(
+                            {"message": "Owner account is inactive."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+
+                    refresh = RefreshToken.for_user(owner.user)
+                    refresh['user_type'] = 'owner'
+                    refresh['user_id'] = str(owner.user.id)
+                    access_token = str(refresh.access_token)
+
+                    return Response(
+                        {
+                            "message": "Login successful (owner).",
+                            "access": access_token,
+                            "user_id": str(owner.user.id),
+                            "user_type": 'owner'
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                # Step 3: Check Manager table
+                manager = Manager.objects.filter(user__phone_number=phone_number).first()
+                if manager:
+                    if not manager.user.is_active:
+                        return Response(
+                            {"message": "Manager account is inactive."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+
+                    refresh = RefreshToken.for_user(manager.user)
+                    refresh['user_type'] = 'manager'
+                    refresh['user_id'] = str(manager.user.id)
+                    access_token = str(refresh.access_token)
+
+                    return Response(
+                        {
+                            "message": "Login successful (manager).",
+                            "access": access_token,
+                            "user_id": str(manager.user.id),
+                            "user_type": 'manager'
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                # Step 4: Check Waiter table
+                waiter = Waiter.objects.filter(user__phone_number=phone_number).first()
+                if waiter:
+                    if not waiter.user.is_active:
+                        return Response(
+                            {"message": "Waiter account is inactive."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+
+                    refresh = RefreshToken.for_user(waiter.user)
+                    refresh['user_type'] = 'waiter'
+                    refresh['user_id'] = str(waiter.user.id)
+                    access_token = str(refresh.access_token)
+
+                    return Response(
+                        {
+                            "message": "Login successful (waiter).",
+                            "access": access_token,
+                            "user_id": str(waiter.user.id),
+                            "user_type": 'waiter'
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                # If no matches found
+                return Response(
+                    {"message": "Partner with this phone number not found in any role."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        except Exception as e:
             return Response(
-                {"message": f"{user_type.capitalize()} with phone number '{phone_number}' not found."},
-                status=status.HTTP_404_NOT_FOUND
+                {"message": f"Login failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -899,6 +1037,7 @@ class FetchUserDetailsAPIView(APIView):
 
 class WaiterDetailsAPI(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
 
     def get(self, request, manager_id=None):  
         try:

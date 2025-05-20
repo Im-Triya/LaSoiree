@@ -87,14 +87,15 @@ class RequestedOwner(models.Model):
     ]
 
     phone_number = models.CharField(max_length=15, unique=True)
-    email = models.EmailField()
-    name = models.CharField(max_length=100)
-    business_name = models.CharField(max_length=255)
-    details = models.TextField()
-    category = models.CharField(max_length=100)
-    gst_number = models.CharField(max_length=20)
-    pan_number = models.CharField(max_length=20)
+    email = models.EmailField(blank=True, null=True)  # Make optional
+    name = models.CharField(max_length=100, blank=True, null=True)  # Make optional
+    business_name = models.CharField(max_length=255, blank=True, null=True)  # Make optional
+    details = models.TextField(blank=True, null=True)  # Make optional
+    category = models.CharField(max_length=100, blank=True, null=True)  # Make optional
+    gst_number = models.CharField(max_length=20, blank=True, null=True)  # Make optional
+    pan_number = models.CharField(max_length=20, blank=True, null=True)  # Make optional
     owner_accepted = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    details_completed = models.BooleanField(default=False)  # New field to track if details are filled
 
     def __str__(self):
         return f"{self.name} - {self.business_name} ({self.owner_accepted})"
