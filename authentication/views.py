@@ -32,6 +32,9 @@ from django.db import connection
 from rest_framework.views import APIView
 
 class CheckAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
     def post(self, request):
         with connection.cursor() as cursor:
             # Get all table names from information_schema.tables for PostgreSQL
