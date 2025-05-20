@@ -854,7 +854,7 @@ class LoginAPIView(APIView):
                     token = RefreshToken()
                     token['phone_number'] = phone_number
                     token['user_type'] = 'owner'
-                    token['is_pending'] = True
+                    # token['is_pending'] = True
                     # No user_id for requested owners
                     access_token = str(token.access_token)
 
