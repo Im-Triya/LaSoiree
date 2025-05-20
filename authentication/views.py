@@ -198,50 +198,47 @@ class AddOwnerAPIView(APIView):
             return Response({"message": str(e)}, status=500)
         
 class RequestOwnerAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+    authentication_classes = []
     
     def post(self, request):
-        # Check if user is owner
-        if request.auth.payload.get('user_type') != 'owner':
-            return Response({"message": "Only owners can complete this request."}, status=403)
-            
-        phone_number = request.user.phone_number  # Get phone number from authenticated user
+        phone_number = request.data.get('phone_number')
+        
+        if not phone_number:
+            return Response(
+                {"message": "Phone number is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
-            # First check if the owner exists
-            requested_owner = RequestedOwner.objects.get(
-                phone_number=phone_number
-            )
+            # Check if owner exists in RequestedOwner table
+            requested_owner = RequestedOwner.objects.get(phone_number=phone_number)
             
-            # Ensure the phone number in request data matches the authenticated user
-            request_data = request.data.copy()
-            if 'phone_number' in request_data and request_data['phone_number'] != phone_number:
-                return Response(
-                    {"message": "Phone number in request doesn't match authenticated user."},
-                    status=400
-                )
-            
-            # Remove phone_number from data to prevent modification
-            request_data.pop('phone_number', None)
-            
+            # Update only the other fields (excluding phone_number)
             serializer = RequestedOwnerSerializer(
                 requested_owner,
-                data=request_data,
-                partial=True
+                data=request.data,
+                partial=True  # Allows partial updates
             )
             
             if serializer.is_valid():
                 serializer.save(details_completed=True)
-                return Response({"message": "Owner details completed successfully."}, status=200)
-            return Response(serializer.errors, status=400)
+                return Response(
+                    {"message": "Owner details updated successfully."},
+                    status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
         except RequestedOwner.DoesNotExist:
             return Response(
-                {"message": "Owner not added by Admin."},
-                status=404
+                {"message": "Owner not requested by admin. Please contact administrator."},
+                status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            return Response({"message": str(e)}, status=500)
+            return Response(
+                {"message": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class VerifyOwnerAPIView(APIView):
     permission_classes = [AllowAny]
@@ -851,17 +848,11 @@ class LoginAPIView(APIView):
                 # Step 1: Check RequestedOwner table
                 requested_owner = RequestedOwner.objects.filter(phone_number=phone_number, owner_accepted__in=["pending", "declined"]).first()
                 if requested_owner:
-                    token = RefreshToken()
-                    token['phone_number'] = phone_number
-                    token['user_type'] = 'owner'
-                    # token['is_pending'] = True
-                    # No user_id for requested owners
-                    access_token = str(token.access_token)
+            
 
                     return Response(
                         {
-                            "message": "Login successful (pending or declined owner approval).",
-                            "access": access_token,
+                            "message": "Login successful (pending or declined owner approval). You will get jwt after owner verification.",
                             "user_type": 'owner'
                         },
                         status=status.HTTP_200_OK
