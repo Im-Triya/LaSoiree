@@ -534,6 +534,7 @@ class VerifyGoogleAPIView(APIView):
                 {"message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 class CheckUserExistsAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -562,23 +563,44 @@ class CheckUserExistsAPIView(APIView):
         for user_type, model in user_types.items():
             query = {}
             if email:
-                query['email'] = email
+                query['user__email'] = email
             if phone_number:
-                query['phone_number'] = phone_number
+                query['user__phone_number'] = phone_number
+            
+            # For CustomUser, we query directly
+            if user_type == 'customuser':
+                query = {}
+                if email:
+                    query['email'] = email
+                if phone_number:
+                    query['phone_number'] = phone_number
             
             # Get the first matching record for each user type
             user = model.objects.filter(**query).first()
             
             if user:
                 exists = True
-                results[user_type] = {
-                    'exists': True,
-                    'id': str(user.id),
-                    'email': user.email,
-                    'phone_number': user.phone_number,
-                    'is_verified': user.is_verified,
-                    'name': user.name
-                }
+                # For CustomUser, the fields are direct
+                if user_type == 'customuser':
+                    user_data = {
+                        'exists': True,
+                        'id': str(user.id),
+                        'email': user.email,
+                        'phone_number': user.phone_number,
+                        'is_verified': user.is_verified,
+                        'name': user.name
+                    }
+                else:
+                    # For other types, we need to access the user fields through the relationship
+                    user_data = {
+                        'exists': True,
+                        'id': str(user.user.id),
+                        'email': user.user.email,
+                        'phone_number': user.user.phone_number,
+                        'is_verified': user.user.is_verified,
+                        'name': user.user.name
+                    }
+                results[user_type] = user_data
             else:
                 results[user_type] = {'exists': False}
 
@@ -601,7 +623,7 @@ class CheckUserExistsAPIView(APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
-
+        
 # class RegisterUserAPIView(APIView):
 #     def post(self, request):
 #         serializer = CustomUserSerializer(data=request.data)
