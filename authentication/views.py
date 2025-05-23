@@ -810,15 +810,77 @@ class LogoutUserAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        try:
-            refresh_token = request.data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            
-            return Response(status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        # Check if refresh token is provided
+        refresh_token = request.data.get("refresh_token")
+        if not refresh_token:
+            return Response(
+                {"error": "Refresh token is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        try:
+            token = RefreshToken(refresh_token)
+            
+            # Check if token is already blacklisted
+            try:
+                token.check_blacklist()
+                return Response(
+                    {
+                        "message": "Already logged out",
+                        "info": "This refresh token was already invalidated"
+                    },
+                    status=status.HTTP_200_OK
+                )
+            except TokenError:
+                # Token is not blacklisted yet, proceed to blacklist it
+                token.blacklist()
+                
+                return Response(
+                    {
+                        "message": "Logout successful",
+                        "details": {
+                            "user_id": str(request.user.id),
+                            "token_invalidated_at": token.payload.get('iat'),
+                            "token_expires_at": token.payload.get('exp')
+                        }
+                    },
+                    status=status.HTTP_205_RESET_CONTENT
+                )
+
+        except TokenError as e:
+            # Handle various JWT errors
+            error_message = str(e)
+            if "blacklisted" in error_message.lower():
+                return Response(
+                    {
+                        "error": "Token already invalidated",
+                        "message": "This refresh token was already used for logout"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif "invalid" in error_message.lower():
+                return Response(
+                    {
+                        "error": "Invalid token",
+                        "message": "The provided refresh token is malformed or expired"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {"error": "Token processing failed", "details": error_message},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            return Response(
+                {
+                    "error": "Logout failed",
+                    "message": "An unexpected error occurred",
+                    "details": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
@@ -860,6 +922,7 @@ class LoginAPIView(APIView):
                     {
                         "message": "Login successful.",
                         "access": access_token,
+                        "refresh": str(refresh),
                         "user_id": str(user.id),
                         "user_type": 'customuser'
                     },
@@ -898,6 +961,7 @@ class LoginAPIView(APIView):
                         {
                             "message": "Login successful (owner).",
                             "access": access_token,
+                            "refresh": str(refresh),
                             "user_id": str(owner.user.id),
                             "user_type": 'owner'
                         },
@@ -922,6 +986,7 @@ class LoginAPIView(APIView):
                         {
                             "message": "Login successful (manager).",
                             "access": access_token,
+                            "refresh": str(refresh),
                             "user_id": str(manager.user.id),
                             "user_type": 'manager'
                         },
@@ -946,6 +1011,7 @@ class LoginAPIView(APIView):
                         {
                             "message": "Login successful (waiter).",
                             "access": access_token,
+                            "refresh": str(refresh),
                             "user_id": str(waiter.user.id),
                             "user_type": 'waiter'
                         },
