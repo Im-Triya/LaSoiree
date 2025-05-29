@@ -289,7 +289,8 @@ class VerifyOwnerAPIView(APIView):
             return Response({
                 "message": "Owner verified and venue created successfully.",
                 "access": str(token),
-                "user_id": str(user.id)
+                "user_id": str(user.id),
+                "venue_id": str(venue.venue_id),
             }, status=201)
 
         except RequestedOwner.DoesNotExist:
