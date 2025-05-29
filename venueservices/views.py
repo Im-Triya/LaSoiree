@@ -160,7 +160,6 @@ class JoinTableView(APIView):
         else:
             return Response({"message": "Failed to join table.", "errors": "Table not available."}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class SendWaiterNotificationView(APIView):
     def post(self, request, *args, **kwargs):
         booking_id = request.data.get('booking_id')

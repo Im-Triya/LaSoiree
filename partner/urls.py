@@ -17,8 +17,8 @@ urlpatterns = [
     path('venue/<str:venue_id>/menu/add/', AddMenuItemAPIView.as_view(), name='add_menu_item'),
     path('venue/<str:venue_id>/menu/update/', UpdateMenuItemAPIView.as_view(), name='update_menu_item'),
     path('table/<str:qr_code>/occupancy/', UpdateTableOccupancyAPIView.as_view(), name='update_table_occupancy'),
-    path('venue/occupancy_stats/', VenueTableStatsAPIView.as_view(), name='venue-stats'),
-    path('venue/active_offers/', VenueActiveOffersAPIView.as_view(), name='venue-active-offers'),
-    path('venue/create_offer/', CreateOfferAPIView.as_view(), name='create-offer'),
-    path('venue/deactivate_offer/', DeactivateOfferAPIView.as_view(), name='deactivate-offer'),
+    path('venue/<str:venue_id>/occupancy_stats/', VenueTableStatsAPIView.as_view(), name='venue-stats'),
+    path('venue/<str:venue_id>/active_offers/', VenueActiveOffersAPIView.as_view(), name='venue-active-offers'),
+    path('venue/<str:venue_id>/create_offer/', CreateOfferAPIView.as_view(), name='create-offer'),
+    path('venue/<str:venue_id>/deactivate_offer/', DeactivateOfferAPIView.as_view(), name='deactivate-offer'),
 ]
