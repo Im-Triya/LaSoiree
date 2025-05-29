@@ -16,7 +16,8 @@ from .views import (
     VenueStaffListView,
     UserVenuesListView,
     MonthlySalesView,
-    DailySalesView
+    DailySalesView,
+    CurrentVenuePresenceView
 )
 
 urlpatterns = [
@@ -37,4 +38,5 @@ urlpatterns = [
     path('associated_venues/', UserVenuesListView.as_view(), name='user_venues_list'),
     path('<str:venue_id>/monthly_sales/', MonthlySalesView.as_view(), name='monthly_sales'),
     path('<str:venue_id>/daily_sales/', DailySalesView.as_view(), name='daily_sales'),
+    path('<str:venue_id>/current_presence/', CurrentVenuePresenceView.as_view(), name='current_venue_presence'),
 ]

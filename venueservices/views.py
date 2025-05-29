@@ -1667,3 +1667,52 @@ class MonthlySalesView(APIView):
                  "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+class CurrentVenuePresenceView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, venue_id, *args, **kwargs):
+        try:
+            # Get the venue
+            venue = get_object_or_404(Venue, venue_id=venue_id)
+            
+            # Get all active presences (where time_out is null)
+            active_presences = Presence.objects.filter(
+                venue=venue,
+                time_out__isnull=True
+            ).select_related('user')
+            
+            # Count of currently present users
+            present_users_count = active_presences.count()
+            
+            # Prepare user details
+            present_users = []
+            for presence in active_presences:
+                user = presence.user
+                present_users.append({
+                    "user_id": str(user.id),
+                    "name": user.name,
+                    "email": user.email,
+                    "phone_number": user.phone_number,
+                    "check_in_time": presence.time_in,
+                    "presence_id": str(presence.id)
+                })
+            
+            return Response({
+                "message": "Current venue presence retrieved successfully.",
+                "venue": {
+                    "venue_id": str(venue.venue_id),
+                    "name": venue.name
+                },
+                "present_users_count": present_users_count,
+                "present_users": present_users,
+                "last_updated": timezone.now()
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"message": "An error occurred while fetching venue presence.",
+                 "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
