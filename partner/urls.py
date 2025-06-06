@@ -8,7 +8,8 @@ from .views import (
     VenueTableStatsAPIView,
     VenueActiveOffersAPIView,
     CreateOfferAPIView,
-    DeactivateOfferAPIView
+    DeactivateOfferAPIView,
+    OwnerVenuesAPIView
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('venue/<str:venue_id>/active_offers/', VenueActiveOffersAPIView.as_view(), name='venue-active-offers'),
     path('venue/<str:venue_id>/create_offer/', CreateOfferAPIView.as_view(), name='create-offer'),
     path('venue/<str:venue_id>/deactivate_offer/', DeactivateOfferAPIView.as_view(), name='deactivate-offer'),
+    path('owner_venues/', OwnerVenuesAPIView.as_view(), name='owner-venues'),
 ]

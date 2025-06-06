@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Venue, Table, Menu, Offer
-from authentication.models import CustomUser, Manager, Waiter
+from authentication.models import CustomUser, Manager, Waiter, Owner
 from .serializers import VenueSerializer, TableSerializer, MenuSerializer, OfferSerializer
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -667,3 +667,31 @@ class DeactivateOfferAPIView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class OwnerVenuesAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        # Check if user is an owner
+        user_type = request.auth.payload.get('user_type')
+        if user_type != 'owner':
+            return Response(
+                {'error': 'Only owners can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get the owner instance for the current user
+        try:
+            owner = Owner.objects.get(user=request.user)
+        except Owner.DoesNotExist:
+            return Response(
+                {'error': 'Owner profile not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get all venues associated with this owner
+        venues = owner.venues.all()
+        serializer = VenueSerializer(venues, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
