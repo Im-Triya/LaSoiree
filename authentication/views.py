@@ -95,19 +95,60 @@ class VerifyPhoneAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
     
-
     def post(self, request):
         phone_number = request.data.get("phone_number")
         otp = request.data.get("otp")
         input_user_type = request.data.get("user_type", "customuser").lower()
 
-        if not phone_number or not otp:
+        if not phone_number:
             return Response(
-                {"message": "Phone number and OTP are required."},
+                {"message": "Phone number is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
+            # First check if user exists in the database
+            user_exists = CustomUser.objects.filter(phone_number=phone_number).exists()
+            
+            if user_exists:
+                user = CustomUser.objects.get(phone_number=phone_number)
+                user.last_login = datetime.now()
+                user.save()
+                
+                # Determine user type and is_staff status
+                final_user_type = input_user_type
+                is_staff = user.is_staff
+                
+                if input_user_type == 'partner':
+                    if Owner.objects.filter(user=user).exists():
+                        final_user_type = 'owner'
+                    elif Manager.objects.filter(user=user).exists():
+                        final_user_type = 'manager'
+                    elif Waiter.objects.filter(user=user).exists():
+                        final_user_type = 'waiter'
+                    else:
+                        final_user_type = 'partner'
+                
+                # Generate token
+                token = AccessToken.for_user(user)
+                token['user_type'] = final_user_type
+
+                return Response({
+                    "message": "User exists. Login successful.",
+                    "is_verified": user.is_verified,
+                    "access": str(token),
+                    "user_type": final_user_type,
+                    "user_id": str(user.id),
+                    "is_staff": is_staff
+                }, status=status.HTTP_200_OK)
+            
+            # If user doesn't exist, proceed with verification
+            if not otp:
+                return Response(
+                    {"message": "OTP is required for new user verification."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # Verification logic (keep test numbers)
             if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333"]:
                 verification_status = "approved"
@@ -126,37 +167,18 @@ class VerifyPhoneAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Get or create the user
-            user, created = CustomUser.objects.get_or_create(
+            # Create the new user
+            user = CustomUser.objects.create(
                 phone_number=phone_number,
-                defaults={
-                    'is_verified': True,
-                    'last_login': datetime.now()
-                }
+                is_verified=True,
+                last_login=datetime.now()
             )
-
-            if not created:
-                user.is_verified = True
-                user.last_login = datetime.now()
-                user.save()
 
             # Determine user type and set is_staff
             final_user_type = input_user_type
             is_staff = False
 
             if input_user_type == 'partner':
-                # Check for existing partner roles (owner > manager > waiter)
-                if Owner.objects.filter(user=user).exists():
-                    final_user_type = 'owner'
-                elif Manager.objects.filter(user=user).exists():
-                    final_user_type = 'manager'
-                elif Waiter.objects.filter(user=user).exists():
-                    final_user_type = 'waiter'
-                else:
-                    final_user_type = 'partner'
-            
-            # Set is_staff for partner roles
-            if final_user_type in ['owner', 'manager', 'waiter', 'partner']:
                 is_staff = True
                 user.is_staff = True
                 user.save()
@@ -166,13 +188,13 @@ class VerifyPhoneAPIView(APIView):
             token['user_type'] = final_user_type
 
             return Response({
-                "message": "Phone number verified successfully.",
+                "message": "Phone number verified and user created successfully.",
                 "is_verified": True,
                 "access": str(token),
                 "user_type": final_user_type,
                 "user_id": str(user.id),
                 "is_staff": is_staff
-            }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response(
