@@ -150,7 +150,7 @@ class VerifyPhoneAPIView(APIView):
                 )
 
             # Verification logic (keep test numbers)
-            if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333"]:
+            if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333", "7050858026"]:
                 verification_status = "approved"
             else:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
