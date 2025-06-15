@@ -588,13 +588,6 @@ class AddItemToCartView(APIView):
             menu_item_id = request.data.get('menu_item_id')
             quantity = request.data.get('quantity', 1)  # Default to 1 if not specified
 
-            if booking.is_ongoing == False:
-                raise ValidationError(
-                    {"message": "Booking has ended.",
-                     "code": "booking_not_ongoing"},
-                    code=status.HTTP_400_BAD_REQUEST
-                )
-            
             if not all([booking_id, menu_item_id]):
                 raise ValidationError(
                     {"message": "Both booking_id and menu_item_id are required.",
@@ -616,12 +609,21 @@ class AddItemToCartView(APIView):
             # Get booking and verify user belongs to it
             try:
                 booking = Booking.objects.get(booking_id=booking_id)
+
+                # MOVED THIS CHECK AFTER WE GET THE BOOKING OBJECT
+                if booking.is_ongoing == False:
+                    raise ValidationError(
+                        {"message": "Booking has ended.",
+                         "code": "booking_not_ongoing"},
+                        code=status.HTTP_400_BAD_REQUEST
+                    )
+
                 if user_type == 'customuser':
-                        if not booking.users.filter(id=user_id).exists():
-                            raise PermissionDenied(
-                                {"message": "User not part of this booking.",
-                                 "code": "not_booking_member"}
-                            )
+                    if not booking.users.filter(id=user_id).exists():
+                        raise PermissionDenied(
+                            {"message": "User not part of this booking.",
+                             "code": "not_booking_member"}
+                        )
                 elif user_type == 'waiter':
                     if not booking.waiter or str(booking.waiter.user_id) != user_id:
                         raise PermissionDenied(
@@ -634,6 +636,7 @@ class AddItemToCartView(APIView):
                      "code": "booking_not_found"}
                 )
 
+            # Rest of your code remains the same...
             # Get menu item
             try:
                 menu_item = Menu.objects.get(menu_item_id=menu_item_id)
@@ -707,7 +710,7 @@ class AddItemToCartView(APIView):
                     {"message": "Only customers or waiters can generate bills.", 
                      "code": "invalid_user_type"}
                 )
-
+    
             # Get user from JWT
             user_id = request.auth.payload.get('user_id')
             if not user_id:
@@ -716,34 +719,36 @@ class AddItemToCartView(APIView):
                      "code": "missing_user_id"},
                     code=status.HTTP_400_BAD_REQUEST
                 )
-
+    
             # Validate request data
             booking_id = request.data.get('booking_id')
             menu_item_id = request.data.get('menu_item_id')
-
-            if booking.is_ongoing == False:
-                raise ValidationError(
-                    {"message": "Booking has ended.",
-                     "code": "booking_not_ongoing"},
-                    code=status.HTTP_400_BAD_REQUEST
-                )
-            
+    
             if not all([booking_id, menu_item_id]):
                 raise ValidationError(
                     {"message": "Both booking_id and menu_item_id are required.",
                      "code": "missing_required_fields"},
                     code=status.HTTP_400_BAD_REQUEST
                 )
-
+    
             # Get booking and verify user belongs to it
             try:
                 booking = Booking.objects.get(booking_id=booking_id)
+                
+                # MOVED THIS CHECK AFTER WE GET THE BOOKING OBJECT
+                if booking.is_ongoing == False:
+                    raise ValidationError(
+                        {"message": "Booking has ended.",
+                         "code": "booking_not_ongoing"},
+                        code=status.HTTP_400_BAD_REQUEST
+                    )
+                    
                 if user_type == 'customuser':
-                        if not booking.users.filter(id=user_id).exists():
-                            raise PermissionDenied(
-                                {"message": "User not part of this booking.",
-                                 "code": "not_booking_member"}
-                            )
+                    if not booking.users.filter(id=user_id).exists():
+                        raise PermissionDenied(
+                            {"message": "User not part of this booking.",
+                             "code": "not_booking_member"}
+                        )
                 elif user_type == 'waiter':
                     if not booking.waiter or str(booking.waiter.user_id) != user_id:
                         raise PermissionDenied(
@@ -755,7 +760,7 @@ class AddItemToCartView(APIView):
                     {"message": "Booking not found.",
                      "code": "booking_not_found"}
                 )
-
+    
             # Get cart and cart item
             try:
                 cart = Cart.objects.get(booking=booking)
@@ -770,7 +775,7 @@ class AddItemToCartView(APIView):
                     {"message": "Item not found in cart.",
                      "code": "item_not_in_cart"}
                 )
-
+    
             # Update or remove item
             if cart_item.quantity > 1:
                 cart_item.quantity -= 1
@@ -778,14 +783,14 @@ class AddItemToCartView(APIView):
                 cart_item.save()
             else:
                 cart_item.delete()
-
+    
             # Update cart and booking totals
             cart.total_bill = sum(item.total_price for item in cart.items.all())
             cart.save()
-
+    
             booking.total_bill = cart.total_bill
             booking.save()
-
+    
             # Prepare response
             cart_items = cart.items.all()
             items_data = [
@@ -798,7 +803,7 @@ class AddItemToCartView(APIView):
                 }
                 for item in cart_items
             ]
-
+    
             return Response({
                 "message": "Item quantity updated or removed from cart successfully.",
                 "code": "cart_updated",
@@ -809,7 +814,7 @@ class AddItemToCartView(APIView):
                     "booking_id": str(booking_id)
                 }
             }, status=status.HTTP_200_OK)
-
+    
         except Exception as e:
             return Response(
                 {"message": "An error occurred while updating cart.",
