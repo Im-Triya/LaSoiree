@@ -79,7 +79,7 @@ class SendOTPAPIView(APIView):
         if not phone_number:
             return Response({"message": "Phone number is required."}, status=status.HTTP_400_BAD_REQUEST)
         
-        if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333", "7050858026"]:
+        if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333", "7050858026", "7483292173", "7976251906", "9784752479", "7987462827", "6203077745", "9810622772", "6363640029", "7330812741"]:
             return Response({"message": "Dummy Number OTP is 123456.", "phone_number": phone_number}, status=status.HTTP_200_OK)
         
         try:
@@ -153,7 +153,7 @@ class VerifyPhoneAPIView(APIView):
                 )
 
             # Verification logic (keep test numbers)
-            if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333", "7050858026"]:
+            if phone_number in ["9999999999", "1111111111", "2222222222", "3333333333", "7050858026", "7483292173", "7976251906", "9784752479", "7987462827", "6203077745", "9810622772", "6363640029", "7330812741"]:
                 verification_status = "approved"
             else:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
