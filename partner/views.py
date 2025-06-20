@@ -695,3 +695,39 @@ class OwnerVenuesAPIView(APIView):
         serializer = VenueSerializer(venues, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class VenueQRCodesAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, venue_id):
+        try:
+            venue = Venue.objects.get(venue_id=venue_id)
+        except Venue.DoesNotExist:
+            return Response(
+                {"error": f"Venue with ID {venue_id} not found", "received_venue_id": venue_id},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Debugging: Print the venue ID being searched
+        print(f"Searching for venue: {venue_id}")
+
+        # Build response data
+        response_data = {
+            "venue_info": {
+                "id": venue.venue_id,
+                "name": venue.name,
+                "qr_code_url": request.build_absolute_uri(venue.qr_code.url) if venue.qr_code else None
+            },
+            "tables": [
+                {
+                    "table_number": table.table_number,
+                    "qr_code_url": request.build_absolute_uri(table.qr_image.url) if table.qr_image else None,
+                    "is_occupied": table.is_occupied,
+                    "qr_data": table.qr_code  # The VEN001::1 format
+                }
+                for table in venue.tables.all().order_by('table_number')
+            ]
+        }
+
+        return Response(response_data)

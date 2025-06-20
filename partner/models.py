@@ -72,21 +72,38 @@ class Table(models.Model):
         if not self.qr_code:
             self.qr_code = f"{self.venue.venue_id}::{self.table_number}"
 
-        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
-        qr.add_data(self.qr_code)
+        # Generate QR code
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(self.qr_code)  # This encodes the correct format with ::
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
 
+        # Prepare file storage
         buffer = BytesIO()
         img.save(buffer, format="PNG")
-        file_name = f"qr_{self.qr_code}.png"
-        self.qr_image.save(file_name, ContentFile(buffer.getvalue()), save=False)
+        
+        # Create clean filename without ::
+        clean_filename = f"qr_{self.venue.venue_id}_{self.table_number}.png"
+        
+        # Set custom upload path: qr_codes/<VenueID>/
+        upload_path = f'{self.venue.venue_id}/{clean_filename}'
+        
+        # Save the image
+        self.qr_image.save(
+            upload_path,
+            ContentFile(buffer.getvalue()),
+            save=False
+        )
 
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Table {self.table_number} at {self.venue.name}"
-
 
 class Menu(models.Model):
     VENUE_ITEM_TAGS = [
