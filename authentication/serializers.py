@@ -37,7 +37,8 @@ class CustomUserSerializer(BaseUserSerializer):
 
 
 class OwnerSerializer(BaseUserSerializer):
-    # Lazy import to avoid circular import
+    user = CustomUserSerializer()  # Serialize the related CustomUser
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from partner.models import Venue
@@ -49,7 +50,7 @@ class OwnerSerializer(BaseUserSerializer):
 
     class Meta(BaseUserSerializer.Meta):
         model = Owner
-        fields = BaseUserSerializer.Meta.fields + ['venues']
+        fields = ['user', 'venues']  # Explicitly list fields
 
 
 class ManagerSerializer(BaseUserSerializer):
