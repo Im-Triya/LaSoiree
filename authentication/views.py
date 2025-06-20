@@ -290,8 +290,15 @@ class VerifyOwnerAPIView(APIView):
                 user.is_verified = True
                 user.save()
 
-            # Create Owner
-            owner = Owner.objects.create(user=user)
+            # Create Owner if doesn't exist
+            owner, owner_created = Owner.objects.get_or_create(
+                user=user,
+                defaults={}
+            )
+            
+            if not owner_created:
+                # Owner already exists, we can proceed with existing owner
+                pass
 
             # Update request to accepted
             requested_owner.owner_accepted = "accepted"
