@@ -12,9 +12,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class BaseUserSerializer(serializers.ModelSerializer):
     class Meta:
+        model = CustomUser  # Explicitly set model for base
         fields = [
             'id', 'email', 'phone_number', 'name', 'gender', 'is_verified',
-            'is_location_permission_granted', 'location', 'profile_photo', 'last_login'
+            'is_location_permission_granted', 'location', 'profile_photo', 'last_login',
+            'age_group', 'interests', 'level'
         ]
         extra_kwargs = {
             'email': {'required': False},
@@ -33,36 +35,52 @@ class BaseUserSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(BaseUserSerializer):
     class Meta(BaseUserSerializer.Meta):
         model = CustomUser
-        fields = BaseUserSerializer.Meta.fields + ['age_group', 'interests', 'level']
+        # Inherits fields from BaseUserSerializer
 
 
-class OwnerSerializer(BaseUserSerializer):
-    user = CustomUserSerializer()  # Serialize the related CustomUser
+class OwnerSerializer(serializers.ModelSerializer):
+    user = CustomUserSerializer()  # Nested serializer for CustomUser
     
+    class Meta:
+        model = Owner
+        fields = ['user']  # Only include Owner-specific fields
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from partner.models import Venue
         self.fields['venues'] = serializers.PrimaryKeyRelatedField(
             many=True,
             queryset=Venue.objects.all(),
-            required=False
+            required=False,
+            source='user.owner_venues'  # Assuming you have a related_name for venues owned
         )
 
-    class Meta(BaseUserSerializer.Meta):
-        model = Owner
-        fields = ['user', 'venues']  # Explicitly list fields
 
-
-class ManagerSerializer(BaseUserSerializer):
-    class Meta(BaseUserSerializer.Meta):
+class ManagerSerializer(serializers.ModelSerializer):
+    user = CustomUserSerializer()  # Nested serializer
+    
+    class Meta:
         model = Manager
-        fields = BaseUserSerializer.Meta.fields + ['venue', 'owner']
+        fields = ['user', 'venue', 'owners']  # Manager-specific fields only
+
+    def to_representation(self, instance):
+        # Custom representation to handle ManyToManyField
+        ret = super().to_representation(instance)
+        ret['owners'] = [owner.user_id for owner in instance.owners.all()]
+        return ret
 
 
-class WaiterSerializer(BaseUserSerializer):
-    class Meta(BaseUserSerializer.Meta):
+class WaiterSerializer(serializers.ModelSerializer):
+    user = CustomUserSerializer()  # Nested serializer
+    
+    class Meta:
         model = Waiter
-        fields = BaseUserSerializer.Meta.fields + ['venue', 'manager']
+        fields = ['user', 'venue', 'managers']
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret['managers'] = [manager.user_id for manager in instance.managers.all()]
+        return ret
 
 class RequestedOwnerSerializer(serializers.ModelSerializer):
     class Meta:

@@ -22,7 +22,7 @@ class Venue(models.Model):
     number_of_tables = models.PositiveIntegerField(default=0)
     total_capacity = models.PositiveIntegerField(default=0)
     current_strength = models.PositiveIntegerField(default=0)
-    owners = models.ManyToManyField('authentication.Owner', related_name='venues')
+    owners = models.ManyToManyField('authentication.Owner', related_name='owner_venues')
     venue_image = models.ImageField(upload_to='venue_images/', blank=True, null=True)
     qr_code = models.ImageField(upload_to='venue_qrcodes/', blank=True, null=True)
 
