@@ -1039,9 +1039,14 @@ class VenueMenuView(APIView):
             {
                 "menu_item_id": item.menu_item_id,
                 "item_name": item.item_name,
-                "price": item.price,
+                "item_description": item.item_description,
+                "price": str(item.price),  
+                "discount": str(item.discount) if item.discount is not None else None,
+                "is_available": item.is_available,
                 "is_veg": item.is_veg,
-                "tag": item.tag
+                "tag": item.tag,
+                "tag_display": item.get_tag_display(), 
+                "image": request.build_absolute_uri(item.image.url) if item.image else None
             }
             for item in menu_items
         ]
