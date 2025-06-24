@@ -691,7 +691,7 @@ class OwnerVenuesAPIView(APIView):
             )
         
         # Get all venues associated with this owner
-        venues = owner.venues.all()
+        venues = owner.owner_venues.all()
         serializer = VenueSerializer(venues, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
