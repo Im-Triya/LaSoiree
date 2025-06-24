@@ -416,7 +416,7 @@ class VerifyStaffAPIView(APIView):
         requesting_owner = self._validate_owner_permission(request_user, user_type)
         
         # Get one of the venues owned by the requesting owner
-        venue = requesting_owner.venues.first()
+        venue = requesting_owner.owner_venues.first()
         if not venue:
             raise ValidationError('Requesting owner has no venues')
         
