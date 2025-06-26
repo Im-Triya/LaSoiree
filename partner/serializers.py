@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Venue, Table, Menu, Offer
+from decimal import Decimal, InvalidOperation
 
 
 class VenueSerializer(serializers.ModelSerializer):
